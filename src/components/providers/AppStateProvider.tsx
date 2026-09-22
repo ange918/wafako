@@ -8,12 +8,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import {
-  DEFAULT_PROFILE,
-  SEED_ACTIONS,
-  SEED_CREX,
-  SEED_INCIDENTS,
-} from "@/lib/mock-data";
+import { EMPTY_PROFILE } from "@/lib/mock-data";
 import { readJson, STORAGE_KEYS, writeJson } from "@/lib/storage";
 import { createLazyStore, networkStore } from "@/lib/external-store";
 import { uid } from "@/lib/utils";
@@ -45,12 +40,18 @@ interface PersistedState {
   hydrated: boolean;
 }
 
-/** Instantané rendu par le serveur et au premier rendu client. */
+/**
+ * Instantané rendu par le serveur et au premier rendu client.
+ *
+ * L'application démarre vide : aucun incident, aucune action et aucune réunion
+ * n'est pré-remplie. Tout ce qui s'affiche vient de ce que les utilisateurs
+ * saisissent.
+ */
 const SERVER_STATE: PersistedState = {
-  profile: DEFAULT_PROFILE,
-  incidents: SEED_INCIDENTS,
-  actions: SEED_ACTIONS,
-  crexMeetings: SEED_CREX,
+  profile: EMPTY_PROFILE,
+  incidents: [],
+  actions: [],
+  crexMeetings: [],
   forcedOffline: false,
   isAuthenticated: false,
   isAdminAuthenticated: false,
@@ -61,10 +62,10 @@ const stateStore = createLazyStore<PersistedState>({
   initial: SERVER_STATE,
   // Exécuté au premier abonnement, donc après hydratation.
   load: () => ({
-    profile: readJson(STORAGE_KEYS.profile, DEFAULT_PROFILE),
-    incidents: readJson(STORAGE_KEYS.incidents, SEED_INCIDENTS),
-    actions: readJson(STORAGE_KEYS.actions, SEED_ACTIONS),
-    crexMeetings: readJson(STORAGE_KEYS.crex, SEED_CREX),
+    profile: readJson(STORAGE_KEYS.profile, EMPTY_PROFILE),
+    incidents: readJson<Incident[]>(STORAGE_KEYS.incidents, []),
+    actions: readJson<ActionItem[]>(STORAGE_KEYS.actions, []),
+    crexMeetings: readJson<CrexMeeting[]>(STORAGE_KEYS.crex, []),
     forcedOffline: readJson(STORAGE_KEYS.forcedOffline, false),
     isAuthenticated: readJson(STORAGE_KEYS.session, false),
     isAdminAuthenticated: readJson(STORAGE_KEYS.adminSession, false),
@@ -92,6 +93,11 @@ function patchState(patch: Partial<PersistedState>) {
 }
 
 interface AppStateValue extends PersistedState {
+  /**
+   * Un compte a-t-il été créé sur cet appareil ? Sans backend, c'est la seule
+   * notion de compte qui existe : la connexion ne peut pas inventer d'identité.
+   */
+  hasAccount: boolean;
   /** Connectivité effective : réseau réel ET interrupteur de démonstration. */
   isOnline: boolean;
   pendingCount: number;
@@ -106,7 +112,7 @@ interface AppStateValue extends PersistedState {
   updateAlarm: (incidentId: string, alarm: Incident["alarm"]) => void;
   scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => void;
   syncPending: () => void;
-  resetDemo: () => void;
+  clearData: () => void;
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -151,7 +157,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const addIncident = useCallback((draft: DeclarationDraft) => {
     const current = stateStore.get();
     const now = new Date();
-    const sequence = 149 + current.incidents.length;
+    const sequence = current.incidents.length + 1;
     const incident: Incident = {
       id: uid("inc"),
       reference: `EI-${now.getFullYear()}-${String(sequence).padStart(4, "0")}`,
@@ -221,15 +227,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Réinitialise les données de démonstration sans toucher à la session en
-  // cours : l'utilisateur reste sur son tableau de bord.
-  const resetDemo = useCallback(
+  // Efface les données saisies sur cet appareil, sans toucher au compte ni
+  // à la session en cours.
+  const clearData = useCallback(
     () =>
       patchState({
-        profile: DEFAULT_PROFILE,
-        incidents: SEED_INCIDENTS,
-        actions: SEED_ACTIONS,
-        crexMeetings: SEED_CREX,
+        incidents: [],
+        actions: [],
+        crexMeetings: [],
         forcedOffline: false,
       }),
     [],
@@ -261,6 +266,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppStateValue = {
     ...state,
+    hasAccount: state.profile.email.trim().length > 0,
     isOnline,
     pendingCount,
     nextCrex,
@@ -274,7 +280,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     updateAlarm,
     scheduleCrex,
     syncPending,
-    resetDemo,
+    clearData,
   };
 
   return (

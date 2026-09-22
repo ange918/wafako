@@ -49,18 +49,27 @@ function emptyDraft(): DeclarationDraft {
 export function DeclarationStepper({
   open,
   onClose,
+  onDeclared,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Appelé à la fermeture lorsqu'une fiche a effectivement été enregistrée. */
+  onDeclared?: () => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} fullScreenOnMobile>
-      <StepperFlow onClose={onClose} />
+      <StepperFlow onClose={onClose} onDeclared={onDeclared} />
     </Modal>
   );
 }
 
-function StepperFlow({ onClose }: { onClose: () => void }) {
+function StepperFlow({
+  onClose,
+  onDeclared,
+}: {
+  onClose: () => void;
+  onDeclared?: () => void;
+}) {
   const { addIncident, isOnline } = useAppState();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -114,7 +123,10 @@ function StepperFlow({ onClose }: { onClose: () => void }) {
         <ConfirmationPanel
           reference={result.reference}
           offline={result.offline}
-          onClose={onClose}
+          onClose={() => {
+            onDeclared?.();
+            onClose();
+          }}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">

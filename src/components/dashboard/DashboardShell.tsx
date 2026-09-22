@@ -53,6 +53,9 @@ export function DashboardShell() {
       <DeclarationStepper
         open={stepperOpen}
         onClose={() => setStepperOpen(false)}
+        // Après validation, on revient à l'accueil : la fiche qui vient
+        // d'être créée y apparaît en tête de liste.
+        onDeclared={() => setTab("accueil")}
       />
     </div>
   );
