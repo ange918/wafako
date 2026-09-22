@@ -141,7 +141,7 @@ export function SettingsTab() {
           variant="ghost"
           size="lg"
           className="w-full text-alert hover:bg-alert/10 hover:text-alert"
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/logout")}
         >
           <LogOut className="size-4.5" />
           Se déconnecter

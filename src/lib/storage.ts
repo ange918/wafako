@@ -16,6 +16,8 @@ export const STORAGE_KEYS = {
   crex: `${PREFIX}crex`,
   forcedOffline: `${PREFIX}forcedOffline`,
   theme: `${PREFIX}theme`,
+  session: `${PREFIX}session`,
+  adminSession: `${PREFIX}adminSession`,
 } as const;
 
 export function readJson<T>(key: string, fallback: T): T {

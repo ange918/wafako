@@ -72,15 +72,21 @@ export function ButtonLink({
   variant = "primary",
   size = "md",
   className,
+  wrapperClassName,
   children,
   href,
   external = false,
-}: StyleProps & { href: string; external?: boolean }) {
+}: StyleProps & {
+  href: string;
+  external?: boolean;
+  /** Classes de l'enveloppe animée, pour la faire s'étirer dans une grille. */
+  wrapperClassName?: string;
+}) {
   const classes = cn(BASE, VARIANTS[variant], SIZES[size], className);
 
   return (
     <motion.span
-      className="inline-flex"
+      className={cn("inline-flex", wrapperClassName)}
       whileHover={HOVER}
       whileTap={TAP}
       transition={EASE_OUT}

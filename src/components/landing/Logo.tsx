@@ -26,7 +26,6 @@ export function Logo({
         )}
       >
         SafeCare
-        <span className="text-softblue"> BJ</span>
       </span>
     </Link>
   );

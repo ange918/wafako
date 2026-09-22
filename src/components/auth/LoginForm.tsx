@@ -7,6 +7,7 @@ import { Eye, EyeOff, LoaderCircle, LogIn } from "lucide-react";
 import { AuthShell } from "./AuthShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
+import { useAppState } from "@/components/providers/AppStateProvider";
 
 /**
  * Connexion simulée : aucune vérification d'identifiants, seule la présence
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/Field";
  */
 export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
   const router = useRouter();
+  const { signIn, signInAdmin } = useAppState();
   const isAdmin = variant === "admin";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +31,10 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
     }
     setError(null);
     setSubmitting(true);
+    // Session simulée : aucun identifiant n'est vérifié, mais l'accès aux
+    // espaces connectés en dépend.
+    if (isAdmin) signInAdmin();
+    else signIn();
     router.push(isAdmin ? "/admin/dashboard" : "/dashboard");
   };
 
