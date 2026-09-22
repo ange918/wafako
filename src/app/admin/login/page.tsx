@@ -1,15 +1,6 @@
-import type { Metadata } from "next";
-import { LoginForm } from "@/components/auth/LoginForm";
-import { RedirectIfAuthenticated } from "@/components/auth/AuthGuard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Portail administrateur",
-};
-
+/** Conservée pour ne pas casser les liens existants vers l'ancien portail. */
 export default function AdminLoginPage() {
-  return (
-    <RedirectIfAuthenticated space="admin">
-      <LoginForm variant="admin" />
-    </RedirectIfAuthenticated>
-  );
+  redirect("/admin/dashboard");
 }

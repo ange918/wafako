@@ -35,11 +35,19 @@ npm run lint    # ESLint
 | `/register` | Inscription soignant (hôpital, service, rôle) → redirige vers `/dashboard` |
 | `/login` | Connexion soignant → `/dashboard` |
 | `/dashboard` | Espace soignant **mobile-first** : badge réseau, déclaration, actions, CREX, paramètres |
-| `/admin` | Redirige vers le portail administrateur |
-| `/admin/login` | Portail administrateur → `/admin/dashboard` |
-| `/admin/dashboard` | Cockpit Direction **desktop-first** : KPIs, graphiques, incidents, ALARM, CREX |
+| `/admin` | Redirige vers `/admin/dashboard` |
+| `/admin/login` | Redirige vers `/admin/dashboard` (ancienne entrée conservée) |
+| `/admin/dashboard` | Cockpit Direction : KPIs, graphiques, incidents, ALARM, CREX — protégé par mot de passe |
 
-L'authentification est simulée : n'importe quel identifiant fonctionne, rien n'est vérifié.
+L'espace soignant exige qu'un compte ait été créé sur l'appareil ; les identifiants eux-mêmes ne sont pas vérifiés.
+
+### Accès à la console d'administration
+
+Le tableau de bord s'ouvre directement par son lien et demande un mot de passe sur place. Le code embarque l'**empreinte SHA-256** du mot de passe, jamais le mot de passe lui-même : le dépôt est public.
+
+Pour changer le mot de passe sans toucher au code, définissez `NEXT_PUBLIC_ADMIN_PASSWORD_HASH` (voir `.env.example`) puis relancez le build — les variables `NEXT_PUBLIC_` sont figées au moment de la compilation.
+
+> **Ce garde n'est pas une sécurité.** La vérification se fait dans le navigateur : elle est contournable, et l'empreinte est lisible dans le bundle. Il écarte un visiteur de passage, rien de plus. Protéger de vraies données de patients demanderait une vérification côté serveur.
 
 ## Mode hors-ligne
 
