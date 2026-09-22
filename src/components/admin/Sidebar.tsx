@@ -48,9 +48,7 @@ export function Sidebar({
         <span className="grid size-9 place-items-center rounded-xl bg-white/12">
           <ShieldPlus className="size-5" />
         </span>
-        <span className="font-display text-lg font-extrabold">
-          SafeCare<span className="text-[#62b0e8]"> BJ</span>
-        </span>
+        <span className="font-display text-lg font-extrabold">SafeCare</span>
       </div>
 
       <p className="px-6 pt-4 pb-2 text-[11px] font-bold tracking-wide text-white/40 uppercase">

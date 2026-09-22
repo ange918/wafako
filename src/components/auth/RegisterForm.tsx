@@ -25,7 +25,7 @@ type Errors = Partial<Record<keyof typeof EMPTY, string>>;
 
 export function RegisterForm() {
   const router = useRouter();
-  const { setProfile } = useAppState();
+  const { setProfile, signIn } = useAppState();
   const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +60,7 @@ export function RegisterForm() {
     if (Object.keys(found).length > 0) return;
 
     setSubmitting(true);
+    signIn();
     setProfile({
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),

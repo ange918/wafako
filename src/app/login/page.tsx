@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { RedirectIfAuthenticated } from "@/components/auth/AuthGuard";
 
 export const metadata: Metadata = {
   title: "Connexion",
 };
 
 export default function LoginPage() {
-  return <LoginForm variant="agent" />;
+  return (
+    <RedirectIfAuthenticated space="agent">
+      <LoginForm variant="agent" />
+    </RedirectIfAuthenticated>
+  );
 }

@@ -32,6 +32,17 @@ interface PersistedState {
   actions: ActionItem[];
   crexMeetings: CrexMeeting[];
   forcedOffline: boolean;
+  /** Session soignant simulée : conditionne l'accès à /dashboard. */
+  isAuthenticated: boolean;
+  /** Session administrateur, distincte de celle du soignant. */
+  isAdminAuthenticated: boolean;
+  /**
+   * false tant que le stockage local n'a pas été lu, c'est-à-dire pendant le
+   * rendu serveur et le premier rendu client. Les gardes d'accès attendent ce
+   * drapeau avant de rediriger, sinon un visiteur connecté serait renvoyé vers
+   * la connexion le temps d'une frame.
+   */
+  hydrated: boolean;
 }
 
 /** Instantané rendu par le serveur et au premier rendu client. */
@@ -41,6 +52,9 @@ const SERVER_STATE: PersistedState = {
   actions: SEED_ACTIONS,
   crexMeetings: SEED_CREX,
   forcedOffline: false,
+  isAuthenticated: false,
+  isAdminAuthenticated: false,
+  hydrated: false,
 };
 
 const stateStore = createLazyStore<PersistedState>({
@@ -52,6 +66,9 @@ const stateStore = createLazyStore<PersistedState>({
     actions: readJson(STORAGE_KEYS.actions, SEED_ACTIONS),
     crexMeetings: readJson(STORAGE_KEYS.crex, SEED_CREX),
     forcedOffline: readJson(STORAGE_KEYS.forcedOffline, false),
+    isAuthenticated: readJson(STORAGE_KEYS.session, false),
+    isAdminAuthenticated: readJson(STORAGE_KEYS.adminSession, false),
+    hydrated: true,
   }),
 });
 
@@ -65,6 +82,12 @@ function patchState(patch: Partial<PersistedState>) {
   if (patch.forcedOffline !== undefined) {
     writeJson(STORAGE_KEYS.forcedOffline, next.forcedOffline);
   }
+  if (patch.isAuthenticated !== undefined) {
+    writeJson(STORAGE_KEYS.session, next.isAuthenticated);
+  }
+  if (patch.isAdminAuthenticated !== undefined) {
+    writeJson(STORAGE_KEYS.adminSession, next.isAdminAuthenticated);
+  }
   stateStore.set(next);
 }
 
@@ -75,6 +98,9 @@ interface AppStateValue extends PersistedState {
   nextCrex: CrexMeeting | null;
   setProfile: (profile: UserProfile) => void;
   setForcedOffline: (value: boolean) => void;
+  signIn: () => void;
+  signInAdmin: () => void;
+  signOut: () => void;
   addIncident: (draft: DeclarationDraft) => Incident;
   updateActionStatus: (id: string, status: ActionStatus) => void;
   updateAlarm: (incidentId: string, alarm: Incident["alarm"]) => void;
@@ -107,6 +133,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const setForcedOffline = useCallback(
     (forcedOffline: boolean) => patchState({ forcedOffline }),
+    [],
+  );
+
+  const signIn = useCallback(() => patchState({ isAuthenticated: true }), []);
+
+  const signInAdmin = useCallback(
+    () => patchState({ isAdminAuthenticated: true }),
+    [],
+  );
+
+  const signOut = useCallback(
+    () => patchState({ isAuthenticated: false, isAdminAuthenticated: false }),
     [],
   );
 
@@ -183,7 +221,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const resetDemo = useCallback(() => patchState(SERVER_STATE), []);
+  // Réinitialise les données de démonstration sans toucher à la session en
+  // cours : l'utilisateur reste sur son tableau de bord.
+  const resetDemo = useCallback(
+    () =>
+      patchState({
+        profile: DEFAULT_PROFILE,
+        incidents: SEED_INCIDENTS,
+        actions: SEED_ACTIONS,
+        crexMeetings: SEED_CREX,
+        forcedOffline: false,
+      }),
+    [],
+  );
 
   const pendingCount = useMemo(
     () =>
@@ -216,6 +266,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     nextCrex,
     setProfile,
     setForcedOffline,
+    signIn,
+    signInAdmin,
+    signOut,
     addIncident,
     updateActionStatus,
     updateAlarm,

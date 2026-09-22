@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, CircleCheck, Siren } from "lucide-react";
+import { ArrowRight, CircleCheck, ShieldCheck, Siren } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 import { PhoneOfflineVisual } from "./PhoneOfflineVisual";
 import { fadeUp, stagger } from "@/lib/motion";
@@ -21,17 +21,9 @@ export function Hero() {
           initial="hidden"
           animate="visible"
         >
-          <motion.span
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-hospital/25 bg-surface/70 px-4 py-1.5 text-xs font-bold text-hospital backdrop-blur"
-          >
-            <Siren className="size-3.5" />
-            Conforme aux exigences APDP Bénin
-          </motion.span>
-
           <motion.h1
             variants={fadeUp}
-            className="font-display mt-5 text-4xl leading-[1.08] font-extrabold text-fg sm:text-5xl lg:text-6xl"
+            className="font-display text-4xl leading-[1.08] font-extrabold text-fg sm:text-5xl lg:text-6xl"
           >
             Sécurité &amp; qualité
             <br />
@@ -47,13 +39,38 @@ export function Hero() {
             et à la direction d&apos;en tirer des plans d&apos;actions suivis.
           </motion.p>
 
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink href="/register" variant="ink" size="lg">
+          <motion.span
+            variants={fadeUp}
+            className="mt-8 inline-flex items-center gap-2 rounded-full border border-hospital/25 bg-surface/70 px-4 py-1.5 text-xs font-bold text-hospital backdrop-blur"
+          >
+            <ShieldCheck className="size-3.5" />
+            Conforme aux exigences APDP Bénin
+          </motion.span>
+
+          {/* Deux colonnes dès le mobile : les CTA restent sur une seule ligne. */}
+          <motion.div
+            variants={fadeUp}
+            className="mt-4 grid grid-cols-2 gap-3 sm:flex"
+          >
+            <ButtonLink
+              href="/register"
+              variant="ink"
+              size="lg"
+              wrapperClassName="w-full sm:w-auto"
+              className="w-full px-4 sm:px-7"
+            >
               Commencer
-              <ArrowRight className="size-4.5" />
+              <ArrowRight className="size-4.5 shrink-0" />
             </ButtonLink>
-            <ButtonLink href="/dashboard" variant="alert" size="lg">
-              <Siren className="size-4.5" />
+            {/* La déclaration passe obligatoirement par la connexion. */}
+            <ButtonLink
+              href="/login"
+              variant="alert"
+              size="lg"
+              wrapperClassName="w-full sm:w-auto"
+              className="w-full px-4 sm:px-7"
+            >
+              <Siren className="size-4.5 shrink-0" />
               Déclarer un EI
             </ButtonLink>
           </motion.div>
