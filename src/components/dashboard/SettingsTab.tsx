@@ -26,8 +26,9 @@ export function SettingsTab() {
     setForcedOffline,
     pendingCount,
     syncPending,
-    resetDemo,
+    clearData,
     isOnline,
+    incidents,
   } = useAppState();
   const { theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
@@ -132,11 +133,16 @@ export function SettingsTab() {
           variant="outline"
           size="lg"
           className="w-full"
-          onClick={resetDemo}
+          disabled={incidents.length === 0}
+          onClick={clearData}
         >
           <RotateCcw className="size-4.5" />
-          Réinitialiser la démonstration
+          Effacer mes données locales
         </Button>
+        <p className="px-1 text-center text-xs leading-relaxed text-fg-muted">
+          Supprime les déclarations, actions et réunions enregistrées sur cet
+          appareil. Votre compte et votre session sont conservés.
+        </p>
         <Button
           variant="ghost"
           size="lg"

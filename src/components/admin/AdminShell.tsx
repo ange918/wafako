@@ -65,7 +65,8 @@ export function AdminShell() {
   const kpis = useMemo(() => {
     const total = incidents.length;
     const closed = incidents.filter((i) => i.status === "cloture").length;
-    const rate = total === 0 ? 0 : Math.round((closed / total) * 100);
+    // Un taux sur zéro incident n'aurait aucun sens : on affiche un tiret.
+    const rate = total === 0 ? null : Math.round((closed / total) * 100);
     const crexDone = crexMeetings.filter((m) => m.done).length;
     // Une action en retard est une action non terminée dont l'échéance est
     // passée. Avant hydratation, le retard n'est pas calculable.
@@ -129,8 +130,12 @@ export function AdminShell() {
                     />
                     <Stat
                       label="Taux de résolution"
-                      value={`${kpis.rate} %`}
-                      delta="Incidents clôturés"
+                      value={kpis.rate === null ? "—" : `${kpis.rate} %`}
+                      delta={
+                        kpis.rate === null
+                          ? "Aucun incident déclaré"
+                          : "Incidents clôturés"
+                      }
                       icon={<CircleCheck className="size-5" />}
                       tone="success"
                     />

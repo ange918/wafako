@@ -15,7 +15,7 @@ import { useAppState } from "@/components/providers/AppStateProvider";
  */
 export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
   const router = useRouter();
-  const { signIn, signInAdmin } = useAppState();
+  const { signIn, signInAdmin, hasAccount } = useAppState();
   const isAdmin = variant === "admin";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +27,14 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
     event.preventDefault();
     if (!identifier.trim() || !password.trim()) {
       setError("Renseignez votre identifiant et votre mot de passe.");
+      return;
+    }
+    // Sans serveur, un compte n'existe que sur l'appareil où il a été créé.
+    // Se connecter sans compte donnerait un profil vide.
+    if (!isAdmin && !hasAccount) {
+      setError(
+        "Aucun compte n'existe sur cet appareil. Créez-en un pour commencer à déclarer.",
+      );
       return;
     }
     setError(null);
@@ -129,8 +137,10 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
           {submitting ? "Connexion…" : "Se connecter"}
         </Button>
 
-        <p className="text-center text-xs text-fg-muted">
-          Démonstration : n&apos;importe quel identifiant fonctionne.
+        <p className="text-center text-xs leading-relaxed text-fg-muted">
+          {isAdmin
+            ? "Les identifiants ne sont pas vérifiés : cette maquette n'a pas de serveur."
+            : "Les identifiants ne sont pas vérifiés, mais un compte doit avoir été créé sur cet appareil."}
         </p>
       </form>
     </AuthShell>

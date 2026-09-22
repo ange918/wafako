@@ -144,12 +144,10 @@ function ActionPreview() {
           </span>
         </motion.div>
       ))}
-      <div className="flex items-center justify-between rounded-lg bg-success/12 px-2.5 py-1.5">
+      <div className="flex items-center gap-1.5 rounded-lg bg-success/12 px-2.5 py-1.5">
+        <Check className="size-2.5 shrink-0 text-success" />
         <span className="text-[9px] font-bold text-success">
-          Taux de clôture
-        </span>
-        <span className="font-display text-[11px] font-extrabold text-success">
-          68 %
+          Suivi jusqu&apos;à la clôture
         </span>
       </div>
     </div>

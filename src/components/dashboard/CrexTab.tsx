@@ -51,6 +51,12 @@ export function CrexTab() {
         <h3 className="font-display mb-3 px-1 text-base font-extrabold text-fg">
           Historique
         </h3>
+        {crexMeetings.filter((meeting) => meeting.id !== nextCrex?.id)
+          .length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-line bg-surface px-5 py-8 text-center text-sm text-fg-muted">
+            Aucune réunion passée à afficher.
+          </p>
+        ) : null}
         <ul className="space-y-2.5">
           {crexMeetings
             .filter((meeting) => meeting.id !== nextCrex?.id)

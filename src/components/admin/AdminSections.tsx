@@ -1,14 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Building2, Mail, ShieldCheck, UserRoundCheck } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  Mail,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import {
   Badge,
   ACTION_STATUS_TONE,
   SEVERITY_TONE,
 } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import {
   ACTION_STATUS_LABELS,
@@ -19,7 +24,7 @@ import {
   SEVERITY_LABELS,
 } from "@/lib/mock-data";
 import { fadeUp, stagger } from "@/lib/motion";
-import { formatDate } from "@/lib/utils";
+import { formatDate, initials } from "@/lib/utils";
 
 export function ActionsSection() {
   const { actions } = useAppState();
@@ -30,46 +35,61 @@ export function ActionsSection() {
         title="Plan d'actions consolidé"
         subtitle={`${actions.filter((a) => a.status !== "termine").length} action(s) encore ouvertes`}
       />
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-3xl text-left text-sm">
-          <thead>
-            <tr className="border-b border-line text-xs font-bold text-fg-muted uppercase">
-              <th className="px-6 py-3">Action</th>
-              <th className="px-6 py-3">Incident</th>
-              <th className="px-6 py-3">Responsable</th>
-              <th className="px-6 py-3">Échéance</th>
-              <th className="px-6 py-3">Priorité</th>
-              <th className="px-6 py-3">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {actions.map((action) => (
-              <tr key={action.id} className="transition-colors hover:bg-muted">
-                <td className="max-w-sm px-6 py-4 font-semibold text-fg">
-                  {action.title}
-                </td>
-                <td className="px-6 py-4 font-display font-extrabold text-fg-muted">
-                  {action.incidentReference}
-                </td>
-                <td className="px-6 py-4 text-fg-muted">{action.owner}</td>
-                <td className="px-6 py-4 text-fg-muted">
-                  {formatDate(action.dueDate)}
-                </td>
-                <td className="px-6 py-4">
-                  <Badge tone={SEVERITY_TONE[action.priority]}>
-                    {SEVERITY_LABELS[action.priority]}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4">
-                  <Badge tone={ACTION_STATUS_TONE[action.status]}>
-                    {ACTION_STATUS_LABELS[action.status]}
-                  </Badge>
-                </td>
+      {actions.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+          <span className="grid size-12 place-items-center rounded-2xl bg-muted text-fg-muted">
+            <ClipboardList className="size-6" />
+          </span>
+          <p className="max-w-sm text-sm text-fg-muted">
+            Aucune action corrective enregistrée. Les actions naissent de
+            l&apos;analyse des incidents déclarés.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-3xl text-left text-sm">
+            <thead>
+              <tr className="border-b border-line text-xs font-bold text-fg-muted uppercase">
+                <th className="px-6 py-3">Action</th>
+                <th className="px-6 py-3">Incident</th>
+                <th className="px-6 py-3">Responsable</th>
+                <th className="px-6 py-3">Échéance</th>
+                <th className="px-6 py-3">Priorité</th>
+                <th className="px-6 py-3">Statut</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {actions.map((action) => (
+                <tr
+                  key={action.id}
+                  className="transition-colors hover:bg-muted"
+                >
+                  <td className="max-w-sm px-6 py-4 font-semibold text-fg">
+                    {action.title}
+                  </td>
+                  <td className="px-6 py-4 font-display font-extrabold text-fg-muted">
+                    {action.incidentReference}
+                  </td>
+                  <td className="px-6 py-4 text-fg-muted">{action.owner}</td>
+                  <td className="px-6 py-4 text-fg-muted">
+                    {formatDate(action.dueDate)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge tone={SEVERITY_TONE[action.priority]}>
+                      {SEVERITY_LABELS[action.priority]}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge tone={ACTION_STATUS_TONE[action.status]}>
+                      {ACTION_STATUS_LABELS[action.status]}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Card>
   );
 }
@@ -163,80 +183,64 @@ export function AlarmSection() {
   );
 }
 
-const MOCK_USERS = [
-  {
-    name: "Aline Dossou",
-    role: "Infirmière",
-    service: "Réanimation",
-    active: true,
-  },
-  {
-    name: "Dr Kofi Houngbé",
-    role: "Médecin",
-    service: "Chirurgie",
-    active: true,
-  },
-  {
-    name: "Florence Zinsou",
-    role: "Sage-femme",
-    service: "Maternité",
-    active: true,
-  },
-  {
-    name: "Pascal Agbo",
-    role: "Technicien labo",
-    service: "Laboratoire",
-    active: true,
-  },
-  {
-    name: "Sika Bio",
-    role: "Manipulateur",
-    service: "Imagerie",
-    active: false,
-  },
-  {
-    name: "Rachidou Tchibozo",
-    role: "Cadre de santé",
-    service: "Urgences",
-    active: true,
-  },
-];
-
+/**
+ * Utilisateurs.
+ *
+ * Sans backend, le seul compte connu est celui créé sur cet appareil. Aucune
+ * liste d'utilisateurs n'est inventée.
+ */
 export function UsersSection() {
+  const { profile, hasAccount, incidents } = useAppState();
+  const hospital = HOSPITALS.find((item) => item.id === profile.hospitalId);
+
+  if (!hasAccount) {
+    return (
+      <Card>
+        <CardHeader title="Utilisateurs" subtitle="Comptes déclarants" />
+        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+          <span className="grid size-12 place-items-center rounded-2xl bg-muted text-fg-muted">
+            <Users className="size-6" />
+          </span>
+          <p className="max-w-sm text-sm text-fg-muted">
+            Aucun compte n&apos;a encore été créé. Les comptes soignants
+            apparaîtront ici après leur inscription.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const declared = incidents.filter(
+    (incident) =>
+      incident.declaredBy ===
+      `${profile.firstName.charAt(0)}. ${profile.lastName}`,
+  ).length;
+
   return (
     <Card>
-      <CardHeader
-        title="Utilisateurs"
-        subtitle={`${MOCK_USERS.filter((u) => u.active).length} comptes actifs`}
-        action={
-          <Button variant="ink" size="sm">
-            <UserRoundCheck className="size-4" />
-            Inviter
-          </Button>
-        }
-      />
+      <CardHeader title="Utilisateurs" subtitle="1 compte sur cet appareil" />
       <ul className="divide-y divide-line">
-        {MOCK_USERS.map((user) => (
-          <li key={user.name} className="flex items-center gap-4 px-6 py-4">
-            <span className="font-display grid size-10 shrink-0 place-items-center rounded-2xl bg-hospital/12 text-sm font-extrabold text-hospital">
-              {user.name
-                .split(" ")
-                .slice(0, 2)
-                .map((part) => part.charAt(0))
-                .join("")}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-fg">{user.name}</p>
-              <p className="text-xs text-fg-muted">
-                {user.role} · {user.service}
-              </p>
-            </div>
-            <Badge tone={user.active ? "success" : "neutral"}>
-              {user.active ? "Actif" : "Suspendu"}
-            </Badge>
-          </li>
-        ))}
+        <li className="flex items-center gap-4 px-6 py-4">
+          <span className="font-display grid size-10 shrink-0 place-items-center rounded-2xl bg-hospital/12 text-sm font-extrabold text-hospital">
+            {initials(profile.firstName, profile.lastName)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-fg">
+              {profile.firstName} {profile.lastName}
+            </p>
+            <p className="truncate text-xs text-fg-muted">
+              {profile.role} · {profile.service} · {hospital?.name ?? "—"}
+            </p>
+          </div>
+          <Badge tone="info">
+            {declared} déclaration{declared > 1 ? "s" : ""}
+          </Badge>
+        </li>
       </ul>
+      <p className="border-t border-line px-6 py-4 text-xs leading-relaxed text-fg-muted">
+        Les comptes sont stockés dans le navigateur de chaque soignant. Une
+        consolidation multi-utilisateurs demanderait un serveur.
+      </p>
     </Card>
   );
 }

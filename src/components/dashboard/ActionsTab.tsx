@@ -39,6 +39,22 @@ export function ActionsTab() {
         </p>
       </motion.div>
 
+      {actions.length === 0 ? (
+        <motion.div
+          variants={fadeUp}
+          className="rounded-3xl border border-dashed border-line bg-surface px-5 py-12 text-center"
+        >
+          <ListTodo className="mx-auto size-8 text-fg-muted/60" />
+          <p className="mt-3 text-sm font-semibold text-fg">
+            Aucune action ne vous est attribuée
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-fg-muted">
+            Les actions correctives sont créées à partir de l&apos;analyse des
+            événements déclarés.
+          </p>
+        </motion.div>
+      ) : null}
+
       {actions.map((action) => (
         <motion.article
           key={action.id}

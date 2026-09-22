@@ -17,6 +17,7 @@ export function CrexModule() {
   const [service, setService] = useState("");
   const [date, setDate] = useState("");
   const [facilitator, setFacilitator] = useState("");
+  const [participants, setParticipants] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function CrexModule() {
       scheduledAt: new Date(date).toISOString(),
       facilitator: facilitator.trim(),
       incidentReferences: [],
-      participants: 8,
+      participants: Number(participants) || 0,
       done: false,
     });
     setConfirmation(`« ${title.trim()} » a été planifiée.`);
@@ -42,6 +43,7 @@ export function CrexModule() {
     setService("");
     setDate("");
     setFacilitator("");
+    setParticipants("");
     window.setTimeout(() => setConfirmation(null), 3000);
   };
 
@@ -64,7 +66,7 @@ export function CrexModule() {
             label="Intitulé"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="CREX Urgences — octobre"
+            placeholder="Intitulé de la réunion"
           />
           <Select
             name="crexService"
@@ -91,7 +93,16 @@ export function CrexModule() {
             label="Animateur"
             value={facilitator}
             onChange={(event) => setFacilitator(event.target.value)}
-            placeholder="Dr K. Houngbé"
+            placeholder="Nom de l'animateur"
+          />
+          <Input
+            name="crexParticipants"
+            label="Participants attendus"
+            type="number"
+            min={0}
+            value={participants}
+            onChange={(event) => setParticipants(event.target.value)}
+            placeholder="0"
           />
 
           {error ? (
@@ -127,6 +138,12 @@ export function CrexModule() {
             title="Réunions planifiées"
             subtitle={`${crexMeetings.length} au total`}
           />
+          {crexMeetings.length === 0 ? (
+            <p className="px-6 py-12 text-center text-sm text-fg-muted">
+              Aucune réunion planifiée. Utilisez le formulaire pour en créer
+              une.
+            </p>
+          ) : null}
           <ul className="divide-y divide-line">
             {crexMeetings.map((meeting) => (
               <li
