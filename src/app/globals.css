@@ -1,26 +1,148 @@
 @import "tailwindcss";
 
+/* Tailwind v4 n'a plus de `darkMode: 'class'` : la variante se déclare ici. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces & texte */
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --elevated: #ffffff;
+  --muted: #f8fafc;
+  --line: #e2e8f0;
+  --fg: #0a2540;
+  --fg-muted: #5a6b80;
+
+  /* Marque */
+  --ink: #0a2540;
+  --hospital: #0f4c81;
+  --softblue: #2a85c8;
+  --vivid: #1b4de4;
+  --alert: #e53e3e;
+  --warn: #f59e0b;
+  --success: #0f9d8f;
+
+  /* Interactif */
+  --primary: #0f4c81;
+  --primary-fg: #ffffff;
+  --on-ink: #ffffff;
+
+  /* Décoratifs repris du visuel de référence */
+  --grad-a: #fdf8f0;
+  --grad-b: #dcd9ee;
+  --chrome-1: #e8eaee;
+  --chrome-2: #ffffff;
+  --chrome-3: #b9bec9;
+
+  --shadow-soft:
+    0 1px 2px rgb(10 37 64 / 0.04), 0 8px 24px -12px rgb(10 37 64 / 0.18);
+  --shadow-lift:
+    0 2px 4px rgb(10 37 64 / 0.06), 0 24px 48px -24px rgb(10 37 64 / 0.32);
 }
 
+.dark {
+  --canvas: #0a1628;
+  --surface: #0f1d33;
+  --elevated: #122036;
+  --muted: #0f1b2e;
+  --line: #1e3350;
+  --fg: #e8eef6;
+  --fg-muted: #90a4bd;
+
+  --ink: #e8eef6;
+  --hospital: #4e9bd6;
+  --softblue: #62b0e8;
+  --vivid: #6d8bf7;
+  --alert: #ff6b6b;
+  --warn: #fbbf24;
+  --success: #2dd4bf;
+
+  --primary: #2a85c8;
+  --primary-fg: #04121f;
+  --on-ink: #0a1628;
+
+  --grad-a: #0d1b2f;
+  --grad-b: #18213c;
+  --chrome-1: #1b2a44;
+  --chrome-2: #26364f;
+  --chrome-3: #0e1a2c;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lift:
+    0 2px 4px rgb(0 0 0 / 0.5), 0 24px 48px -24px rgb(0 0 0 / 0.75);
+}
+
+/* `inline` : les tokens pointent vers des var() redéfinies par `.dark`. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-hospital: var(--hospital);
+  --color-softblue: var(--softblue);
+  --color-vivid: var(--vivid);
+  --color-alert: var(--alert);
+  --color-warn: var(--warn);
+  --color-success: var(--success);
+
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+
+  --font-display: var(--font-archivo);
+  --font-sans: var(--font-jakarta);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lift: var(--shadow-lift);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--canvas);
+  color: var(--fg);
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Titres : Archivo lourd, letter-spacing neutre (pas de tracking serré). */
+.font-display {
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+/* Ancres de la landing : compense le header collant. */
+[id] {
+  scroll-margin-top: 6rem;
+}
+
+@utility surface-gradient {
+  background-image: linear-gradient(
+    140deg,
+    var(--grad-a) 0%,
+    var(--canvas) 45%,
+    var(--grad-b) 100%
+  );
+}
+
+@utility chrome-gradient {
+  background-image: linear-gradient(
+    150deg,
+    var(--chrome-1) 0%,
+    var(--chrome-2) 38%,
+    var(--chrome-1) 62%,
+    var(--chrome-3) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
