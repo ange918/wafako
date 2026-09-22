@@ -10,13 +10,16 @@ import { Input } from "@/components/ui/Field";
 import { useAppState } from "@/components/providers/AppStateProvider";
 
 /**
- * Connexion simulée : aucune vérification d'identifiants, seule la présence
- * des champs est contrôlée avant la redirection.
+ * Connexion soignant.
+ *
+ * Les identifiants ne sont pas vérifiés — il n'y a pas de serveur — mais un
+ * compte doit exister sur cet appareil, sans quoi la session ouvrirait un
+ * profil vide. L'espace administrateur, lui, passe par son propre garde par
+ * mot de passe sur `/admin/dashboard`.
  */
-export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
+export function LoginForm() {
   const router = useRouter();
-  const { signIn, signInAdmin, hasAccount } = useAppState();
-  const isAdmin = variant === "admin";
+  const { signIn, hasAccount } = useAppState();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,9 +32,7 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
       setError("Renseignez votre identifiant et votre mot de passe.");
       return;
     }
-    // Sans serveur, un compte n'existe que sur l'appareil où il a été créé.
-    // Se connecter sans compte donnerait un profil vide.
-    if (!isAdmin && !hasAccount) {
+    if (!hasAccount) {
       setError(
         "Aucun compte n'existe sur cet appareil. Créez-en un pour commencer à déclarer.",
       );
@@ -39,52 +40,34 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
     }
     setError(null);
     setSubmitting(true);
-    // Session simulée : aucun identifiant n'est vérifié, mais l'accès aux
-    // espaces connectés en dépend.
-    if (isAdmin) signInAdmin();
-    else signIn();
-    router.push(isAdmin ? "/admin/dashboard" : "/dashboard");
+    signIn();
+    router.push("/dashboard");
   };
 
   return (
     <AuthShell
-      title={isAdmin ? "Portail administrateur" : "Se connecter"}
-      subtitle={
-        isAdmin
-          ? "Accès réservé aux référents qualité et à la direction de l'établissement."
-          : "Retrouvez vos déclarations, vos actions et la prochaine réunion CREX de votre service."
-      }
+      title="Se connecter"
+      subtitle="Retrouvez vos déclarations, vos actions et la prochaine réunion CREX de votre service."
       footer={
-        isAdmin ? (
+        <>
+          Pas encore de compte ?{" "}
           <Link
-            href="/"
+            href="/register"
             className="font-semibold text-hospital hover:underline"
           >
-            Retour au site public
+            S&apos;inscrire
           </Link>
-        ) : (
-          <>
-            Pas encore de compte ?{" "}
-            <Link
-              href="/register"
-              className="font-semibold text-hospital hover:underline"
-            >
-              S&apos;inscrire
-            </Link>
-          </>
-        )
+        </>
       }
     >
       <form onSubmit={onSubmit} noValidate className="space-y-5">
         <Input
           name="identifier"
-          label={
-            isAdmin ? "Adresse e-mail professionnelle" : "E-mail ou téléphone"
-          }
+          label="E-mail ou téléphone"
           autoComplete="username"
           value={identifier}
           onChange={(event) => setIdentifier(event.target.value)}
-          placeholder={isAdmin ? "qualite@cnhu.bj" : "a.dossou@cnhu.bj"}
+          placeholder="votre e-mail ou numéro"
         />
 
         <div className="relative">
@@ -106,7 +89,7 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
                 ? "Masquer le mot de passe"
                 : "Afficher le mot de passe"
             }
-            className="absolute right-3 top-8.5 rounded-lg p-1.5 text-fg-muted transition-colors hover:text-fg"
+            className="absolute top-8.5 right-3 rounded-lg p-1.5 text-fg-muted transition-colors hover:text-fg"
           >
             {showPassword ? (
               <EyeOff className="size-4.5" />
@@ -124,7 +107,7 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
 
         <Button
           type="submit"
-          variant={isAdmin ? "primary" : "ink"}
+          variant="ink"
           size="lg"
           className="w-full"
           disabled={submitting}
@@ -138,9 +121,8 @@ export function LoginForm({ variant }: { variant: "agent" | "admin" }) {
         </Button>
 
         <p className="text-center text-xs leading-relaxed text-fg-muted">
-          {isAdmin
-            ? "Les identifiants ne sont pas vérifiés : cette maquette n'a pas de serveur."
-            : "Les identifiants ne sont pas vérifiés, mais un compte doit avoir été créé sur cet appareil."}
+          Les identifiants ne sont pas vérifiés, mais un compte doit avoir été
+          créé sur cet appareil.
         </p>
       </form>
     </AuthShell>

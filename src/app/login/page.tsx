@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <RedirectIfAuthenticated space="agent">
-      <LoginForm variant="agent" />
+      <LoginForm />
     </RedirectIfAuthenticated>
   );
 }

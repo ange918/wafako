@@ -2,8 +2,14 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarCheck, CircleCheck, Siren, TriangleAlert } from "lucide-react";
-import { MobileSectionNav, Sidebar, type AdminSection } from "./Sidebar";
+import {
+  CalendarCheck,
+  CircleCheck,
+  Menu,
+  Siren,
+  TriangleAlert,
+} from "lucide-react";
+import { Sidebar, SidebarDrawer, type AdminSection } from "./Sidebar";
 import { AlarmDonut, MonthlyTrend, ServiceBarChart } from "./Charts";
 import { IncidentsTable } from "./IncidentsTable";
 import { IncidentDetailDrawer } from "./IncidentDetailDrawer";
@@ -51,6 +57,7 @@ const TITLES: Record<AdminSection, { title: string; subtitle: string }> = {
 
 export function AdminShell() {
   const [section, setSection] = useState<AdminSection>("cockpit");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState<Incident | null>(null);
   const { incidents, actions, crexMeetings } = useAppState();
 
@@ -86,11 +93,25 @@ export function AdminShell() {
   return (
     <div className="min-h-dvh bg-canvas lg:pl-64">
       <Sidebar active={section} onSelect={setSection} />
+      <SidebarDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        active={section}
+        onSelect={setSection}
+      />
 
       <div className="flex min-h-dvh flex-col">
         <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 px-5 py-4 backdrop-blur-xl lg:px-8">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Ouvrir le menu de navigation"
+              className="grid size-10 shrink-0 place-items-center rounded-full border border-line bg-surface text-fg lg:hidden"
+            >
+              <Menu className="size-5" />
+            </button>
+            <div className="min-w-0 flex-1">
               <h1 className="font-display truncate text-xl font-extrabold text-fg lg:text-2xl">
                 {header.title}
               </h1>
@@ -99,9 +120,6 @@ export function AdminShell() {
               </p>
             </div>
             <ThemeToggle />
-          </div>
-          <div className="mt-4">
-            <MobileSectionNav active={section} onSelect={setSection} />
           </div>
         </header>
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ShieldPlus } from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
+import { AdminPasswordGate } from "./AdminPasswordGate";
 
 type Space = "agent" | "admin";
 
@@ -54,12 +55,22 @@ export function RequireAuth({
   const { hydrated, isAuthenticated, isAdminAuthenticated } = useAppState();
   const allowed = space === "admin" ? isAdminAuthenticated : isAuthenticated;
 
+  // L'espace admin ne redirige pas : le lien du tableau de bord doit
+  // fonctionner directement, le mot de passe étant demandé sur cette URL.
   useEffect(() => {
+    if (space === "admin") return;
     if (hydrated && !allowed) router.replace(LOGIN_PATH[space]);
   }, [hydrated, allowed, router, space]);
 
   if (!hydrated) return <Splash label="Vérification de votre session…" />;
-  if (!allowed) return <Splash label="Connexion requise — redirection…" />;
+
+  if (!allowed) {
+    return space === "admin" ? (
+      <AdminPasswordGate />
+    ) : (
+      <Splash label="Connexion requise — redirection…" />
+    );
+  }
 
   return <>{children}</>;
 }
