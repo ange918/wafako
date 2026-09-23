@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, House } from "lucide-react";
+import { House } from "lucide-react";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { NetworkBadge } from "./NetworkBadge";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useAppState } from "@/components/providers/AppStateProvider";
@@ -44,14 +45,7 @@ export function TopBar({ onHome }: { onHome: () => void }) {
             <House className="size-5" />
           </button>
           <ThemeToggle />
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative grid size-10 place-items-center rounded-full border border-line bg-surface text-fg-muted transition-colors hover:text-fg"
-          >
-            <Bell className="size-5" />
-            <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-alert" />
-          </button>
+          <NotificationBell />
         </div>
 
         <div className="mt-3">

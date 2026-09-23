@@ -49,8 +49,17 @@ async function digest(input: string) {
     .join("");
 }
 
-export function AdminPasswordGate() {
-  const { signInAdmin } = useAppState();
+/**
+ * Écran de mot de passe, partagé par la console d'administration et l'espace
+ * de la cellule qualité. Un seul mot de passe couvre les deux espaces.
+ */
+export function AdminPasswordGate({
+  space = "admin",
+}: {
+  space?: "admin" | "quality";
+}) {
+  const { signInAdmin, signInQuality } = useAppState();
+  const isQuality = space === "quality";
   const [value, setValue] = useState("");
   const [visible, setVisible] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -79,7 +88,8 @@ export function AdminPasswordGate() {
       return;
     }
     setError(null);
-    signInAdmin();
+    if (isQuality) signInQuality();
+    else signInAdmin();
   };
 
   return (
@@ -98,11 +108,12 @@ export function AdminPasswordGate() {
         </div>
 
         <h1 className="font-display mt-6 text-2xl font-extrabold text-fg">
-          Console d&apos;administration
+          {isQuality ? "Cellule qualité" : "Console d'administration"}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-          Cet espace est réservé à la direction et aux référents qualité.
-          Saisissez le mot de passe d&apos;accès pour continuer.
+          {isQuality
+            ? "Cet espace reçoit les déclarations des soignants et permet de les classer. Saisissez le mot de passe d'accès pour continuer."
+            : "Cet espace est réservé à la direction et aux référents qualité. Saisissez le mot de passe d'accès pour continuer."}
         </p>
 
         {configured ? (
@@ -160,7 +171,11 @@ export function AdminPasswordGate() {
               ) : (
                 <Lock className="size-4.5" />
               )}
-              {checking ? "Vérification…" : "Accéder à la console"}
+              {checking
+                ? "Vérification…"
+                : isQuality
+                  ? "Accéder à l'espace qualité"
+                  : "Accéder à la console"}
             </Button>
           </form>
         ) : (

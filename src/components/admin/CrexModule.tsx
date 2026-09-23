@@ -30,6 +30,7 @@ export function CrexModule() {
     }
     setError(null);
     scheduleCrex({
+      kind: "crex",
       title: title.trim(),
       service,
       scheduledAt: new Date(date).toISOString(),

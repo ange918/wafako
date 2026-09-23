@@ -7,16 +7,18 @@ import { ShieldPlus } from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { AdminPasswordGate } from "./AdminPasswordGate";
 
-type Space = "agent" | "admin";
+type Space = "agent" | "admin" | "quality";
 
 const LOGIN_PATH: Record<Space, string> = {
   agent: "/login",
   admin: "/admin/login",
+  quality: "/qualite",
 };
 
 const HOME_PATH: Record<Space, string> = {
   agent: "/dashboard",
   admin: "/admin/dashboard",
+  quality: "/qualite",
 };
 
 /** Écran d'attente pendant la lecture de la session ou une redirection. */
@@ -52,24 +54,33 @@ export function RequireAuth({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { hydrated, isAuthenticated, isAdminAuthenticated } = useAppState();
-  const allowed = space === "admin" ? isAdminAuthenticated : isAuthenticated;
+  const {
+    hydrated,
+    isAuthenticated,
+    isAdminAuthenticated,
+    isQualityAuthenticated,
+  } = useAppState();
+  const allowed =
+    space === "admin"
+      ? isAdminAuthenticated
+      : space === "quality"
+        ? isQualityAuthenticated
+        : isAuthenticated;
 
-  // L'espace admin ne redirige pas : le lien du tableau de bord doit
+  // Les espaces protégés par mot de passe ne redirigent pas : le lien du tableau de bord doit
   // fonctionner directement, le mot de passe étant demandé sur cette URL.
   useEffect(() => {
-    if (space === "admin") return;
+    if (space !== "agent") return;
     if (hydrated && !allowed) router.replace(LOGIN_PATH[space]);
   }, [hydrated, allowed, router, space]);
 
   if (!hydrated) return <Splash label="Vérification de votre session…" />;
 
   if (!allowed) {
-    return space === "admin" ? (
-      <AdminPasswordGate />
-    ) : (
-      <Splash label="Connexion requise — redirection…" />
-    );
+    if (space === "agent") {
+      return <Splash label="Connexion requise — redirection…" />;
+    }
+    return <AdminPasswordGate space={space} />;
   }
 
   return <>{children}</>;

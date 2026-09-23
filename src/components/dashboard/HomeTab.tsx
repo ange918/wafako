@@ -57,10 +57,15 @@ export function HomeTab({ onDeclare }: { onDeclare: () => void }) {
         ) : (
           <ul className="space-y-2.5">
             {mine.map((incident) => {
-              const Icon = CATEGORY_ICONS[incident.category];
+              // La première catégorie porte l'icône ; les autres sont
+              // rappelées dans le libellé.
+              const [first, ...others] = incident.categories;
+              const Icon = CATEGORY_ICONS[first] ?? CATEGORY_ICONS.autre;
+              const base =
+                CATEGORIES.find((item) => item.id === first)?.label ??
+                "Événement";
               const label =
-                CATEGORIES.find((item) => item.id === incident.category)
-                  ?.label ?? "Événement";
+                others.length > 0 ? `${base} +${others.length}` : base;
               return (
                 <motion.li
                   key={incident.id}

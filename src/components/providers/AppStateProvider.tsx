@@ -15,6 +15,8 @@ import { uid } from "@/lib/utils";
 import type {
   ActionItem,
   ActionStatus,
+  AppNotification,
+  Classification,
   CrexMeeting,
   DeclarationDraft,
   Incident,
@@ -27,8 +29,11 @@ interface PersistedState {
   actions: ActionItem[];
   crexMeetings: CrexMeeting[];
   forcedOffline: boolean;
+  notifications: AppNotification[];
   /** Session soignant simulée : conditionne l'accès à /dashboard. */
   isAuthenticated: boolean;
+  /** Session de la cellule qualité, qui reçoit et classe les déclarations. */
+  isQualityAuthenticated: boolean;
   /** Session administrateur, distincte de celle du soignant. */
   isAdminAuthenticated: boolean;
   /**
@@ -53,7 +58,9 @@ const SERVER_STATE: PersistedState = {
   actions: [],
   crexMeetings: [],
   forcedOffline: false,
+  notifications: [],
   isAuthenticated: false,
+  isQualityAuthenticated: false,
   isAdminAuthenticated: false,
   hydrated: false,
 };
@@ -67,7 +74,9 @@ const stateStore = createLazyStore<PersistedState>({
     actions: readJson<ActionItem[]>(STORAGE_KEYS.actions, []),
     crexMeetings: readJson<CrexMeeting[]>(STORAGE_KEYS.crex, []),
     forcedOffline: readJson(STORAGE_KEYS.forcedOffline, false),
+    notifications: readJson<AppNotification[]>(STORAGE_KEYS.notifications, []),
     isAuthenticated: readJson(STORAGE_KEYS.session, false),
+    isQualityAuthenticated: readJson(STORAGE_KEYS.quality, false),
     isAdminAuthenticated: readJson(STORAGE_KEYS.adminSession, false),
     hydrated: true,
   }),
@@ -83,8 +92,14 @@ function patchState(patch: Partial<PersistedState>) {
   if (patch.forcedOffline !== undefined) {
     writeJson(STORAGE_KEYS.forcedOffline, next.forcedOffline);
   }
+  if (patch.notifications) {
+    writeJson(STORAGE_KEYS.notifications, next.notifications);
+  }
   if (patch.isAuthenticated !== undefined) {
     writeJson(STORAGE_KEYS.session, next.isAuthenticated);
+  }
+  if (patch.isQualityAuthenticated !== undefined) {
+    writeJson(STORAGE_KEYS.quality, next.isQualityAuthenticated);
   }
   if (patch.isAdminAuthenticated !== undefined) {
     writeJson(STORAGE_KEYS.adminSession, next.isAdminAuthenticated);
@@ -108,8 +123,28 @@ interface AppStateValue extends PersistedState {
   signInAdmin: () => void;
   signOut: () => void;
   addIncident: (draft: DeclarationDraft) => Incident;
+  classifyIncident: (
+    incidentId: string,
+    classification: Classification,
+  ) => void;
+  notify: (
+    notification: Omit<AppNotification, "id" | "createdAt" | "read">,
+  ) => void;
+  markNotificationsRead: () => void;
+  callUrgentMeeting: (
+    meeting: Omit<CrexMeeting, "id" | "kind" | "done">,
+  ) => CrexMeeting;
+  signInQuality: () => void;
+  unreadCount: number;
+  /** Fiches reçues et pas encore classées par la cellule qualité. */
+  pendingClassification: number;
   updateActionStatus: (id: string, status: ActionStatus) => void;
-  updateAlarm: (incidentId: string, alarm: Incident["alarm"]) => void;
+  updateAlarm: (
+    incidentId: string,
+    alarm: Incident["alarm"],
+    alarmChecks?: Incident["alarmChecks"],
+    avoidable?: Incident["avoidable"],
+  ) => void;
   scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => void;
   syncPending: () => void;
   clearData: () => void;
@@ -149,8 +184,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const signInQuality = useCallback(
+    () => patchState({ isQualityAuthenticated: true }),
+    [],
+  );
+
   const signOut = useCallback(
-    () => patchState({ isAuthenticated: false, isAdminAuthenticated: false }),
+    () =>
+      patchState({
+        isAuthenticated: false,
+        isAdminAuthenticated: false,
+        isQualityAuthenticated: false,
+      }),
     [],
   );
 
@@ -161,12 +206,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const incident: Incident = {
       id: uid("inc"),
       reference: `EI-${now.getFullYear()}-${String(sequence).padStart(4, "0")}`,
-      category: draft.category ?? "autre",
+      categories: draft.categories.length > 0 ? draft.categories : ["autre"],
       severity: draft.severity,
       status: "nouveau",
       service: current.profile.service,
       hospitalId: current.profile.hospitalId,
+      location: draft.location.trim(),
+      victim: draft.victim,
       description: draft.description,
+      firstActions: draft.firstActions.trim(),
+      preventionProposals: draft.preventionProposals.trim(),
       occurredAt: draft.occurredAt,
       declaredAt: now.toISOString(),
       declaredBy: `${current.profile.firstName.charAt(0)}. ${current.profile.lastName}`,
@@ -181,6 +230,81 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return incident;
   }, []);
 
+  /**
+   * Classement par la cellule qualité. Une décision « analyse approfondie »
+   * fait passer la fiche en analyse ; les autres la marquent classée.
+   */
+  const classifyIncident = useCallback(
+    (incidentId: string, classification: Classification) => {
+      patchState({
+        incidents: stateStore.get().incidents.map((incident) =>
+          incident.id === incidentId
+            ? {
+                ...incident,
+                classification,
+                status:
+                  classification.decision === "analyse_approfondie"
+                    ? "en_analyse"
+                    : classification.decision === "action"
+                      ? "action_en_cours"
+                      : "cloture",
+              }
+            : incident,
+        ),
+      });
+    },
+    [],
+  );
+
+  const notify = useCallback(
+    (notification: Omit<AppNotification, "id" | "createdAt" | "read">) => {
+      patchState({
+        notifications: [
+          {
+            ...notification,
+            id: uid("notif"),
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...stateStore.get().notifications,
+        ],
+      });
+    },
+    [],
+  );
+
+  const markNotificationsRead = useCallback(() => {
+    patchState({
+      notifications: stateStore
+        .get()
+        .notifications.map((item) => ({ ...item, read: true })),
+    });
+  }, []);
+
+  /**
+   * Rassemblement immédiat déclenché par la cellule qualité. Tous les
+   * utilisateurs sont notifiés, quel que soit leur poste.
+   */
+  const callUrgentMeeting = useCallback(
+    (meeting: Omit<CrexMeeting, "id" | "kind" | "done">) => {
+      const created: CrexMeeting = {
+        ...meeting,
+        id: uid("meet"),
+        kind: "urgence",
+        done: false,
+      };
+      patchState({ crexMeetings: [...stateStore.get().crexMeetings, created] });
+      notify({
+        title: "Rassemblement immédiat",
+        body: `${created.title} — ${created.service}. Votre présence est attendue.`,
+        urgent: true,
+        meetingId: created.id,
+      });
+      return created;
+    },
+    [notify],
+  );
+
   const updateActionStatus = useCallback((id: string, status: ActionStatus) => {
     patchState({
       actions: stateStore
@@ -192,15 +316,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateAlarm = useCallback(
-    (incidentId: string, alarm: Incident["alarm"]) => {
+    (
+      incidentId: string,
+      alarm: Incident["alarm"],
+      alarmChecks?: Incident["alarmChecks"],
+      avoidable?: Incident["avoidable"],
+    ) => {
       patchState({
-        incidents: stateStore
-          .get()
-          .incidents.map((incident) =>
-            incident.id === incidentId
-              ? { ...incident, alarm, status: "en_analyse" }
-              : incident,
-          ),
+        incidents: stateStore.get().incidents.map((incident) =>
+          incident.id === incidentId
+            ? {
+                ...incident,
+                alarm,
+                alarmChecks: alarmChecks ?? incident.alarmChecks,
+                avoidable: avoidable ?? incident.avoidable,
+                status: "en_analyse",
+              }
+            : incident,
+        ),
       });
     },
     [],
@@ -235,9 +368,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         incidents: [],
         actions: [],
         crexMeetings: [],
+        notifications: [],
         forcedOffline: false,
       }),
     [],
+  );
+
+  const unreadCount = useMemo(
+    () => state.notifications.filter((item) => !item.read).length,
+    [state.notifications],
+  );
+
+  const pendingClassification = useMemo(
+    () => state.incidents.filter((incident) => !incident.classification).length,
+    [state.incidents],
   );
 
   const pendingCount = useMemo(
@@ -276,6 +420,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     signInAdmin,
     signOut,
     addIncident,
+    classifyIncident,
+    notify,
+    markNotificationsRead,
+    callUrgentMeeting,
+    signInQuality,
+    unreadCount,
+    pendingClassification,
     updateActionStatus,
     updateAlarm,
     scheduleCrex,

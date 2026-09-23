@@ -118,10 +118,12 @@ export function IncidentsTable({
               </thead>
               <tbody className="divide-y divide-line">
                 {filtered.map((incident) => {
-                  const Icon = CATEGORY_ICONS[incident.category];
+                  const [first, ...others] = incident.categories;
+                  const Icon = CATEGORY_ICONS[first] ?? CATEGORY_ICONS.autre;
+                  const base =
+                    CATEGORIES.find((item) => item.id === first)?.label ?? "—";
                   const label =
-                    CATEGORIES.find((item) => item.id === incident.category)
-                      ?.label ?? "—";
+                    others.length > 0 ? `${base} +${others.length}` : base;
                   return (
                     <motion.tr
                       key={incident.id}

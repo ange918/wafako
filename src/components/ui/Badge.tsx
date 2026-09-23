@@ -42,6 +42,7 @@ export const SEVERITY_TONE: Record<Severity, Tone> = {
 
 export const INCIDENT_STATUS_TONE: Record<IncidentStatus, Tone> = {
   nouveau: "alert",
+  classe: "info",
   en_analyse: "warn",
   action_en_cours: "info",
   cloture: "success",

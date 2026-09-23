@@ -76,20 +76,41 @@ function DrawerPanel({
   const [draft, setDraft] = useState<Partial<Record<AlarmFactorKey, string>>>(
     incident.alarm ?? {},
   );
+  // Sous-facteurs cochés, repris de la grille du CHIC.
+  const [checks, setChecks] = useState<
+    Partial<Record<AlarmFactorKey, string[]>>
+  >(incident.alarmChecks ?? {});
+  const [avoidable, setAvoidable] = useState<Incident["avoidable"]>(
+    incident.avoidable ?? "indetermine",
+  );
   const [saved, setSaved] = useState(false);
 
-  const filledCount = ALARM_FACTORS.filter((factor) =>
-    (draft[factor.key] ?? "").trim(),
+  const toggleCheck = (key: AlarmFactorKey, item: string) =>
+    setChecks((current) => {
+      const list = current[key] ?? [];
+      return {
+        ...current,
+        [key]: list.includes(item)
+          ? list.filter((entry) => entry !== item)
+          : [...list, item],
+      };
+    });
+
+  const filledCount = ALARM_FACTORS.filter(
+    (factor) =>
+      (draft[factor.key] ?? "").trim() || (checks[factor.key] ?? []).length > 0,
   ).length;
 
   const save = () => {
-    updateAlarm(incident.id, draft);
+    updateAlarm(incident.id, draft, checks, avoidable);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);
   };
 
-  const category = CATEGORIES.find((item) => item.id === incident.category);
-  const Icon = CATEGORY_ICONS[incident.category];
+  const categories = incident.categories
+    .map((id) => CATEGORIES.find((item) => item.id === id))
+    .filter((item) => item !== undefined);
+  const Icon = CATEGORY_ICONS[incident.categories[0]] ?? CATEGORY_ICONS.autre;
   const hospital = HOSPITALS.find((item) => item.id === incident.hospitalId);
 
   return (
@@ -110,7 +131,8 @@ function DrawerPanel({
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-fg-muted">
             {Icon ? <Icon className="size-4 text-hospital" /> : null}
-            {category?.label} · {incident.service}
+            {categories.map((item) => item.label).join(" · ")} ·{" "}
+            {incident.service}
           </p>
         </div>
         <button
@@ -203,6 +225,29 @@ function DrawerPanel({
                     <p className="mt-0.5 text-xs text-fg-muted">
                       {factor.description}
                     </p>
+                    {/* Sous-facteurs de la grille du CHIC */}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {factor.items.map((item) => {
+                        const active = (checks[factor.key] ?? []).includes(
+                          item,
+                        );
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleCheck(factor.key, item)}
+                            aria-pressed={active}
+                            className={
+                              active
+                                ? "rounded-full border border-transparent bg-hospital px-3 py-1 text-[11px] font-bold text-white"
+                                : "rounded-full border border-line px-3 py-1 text-[11px] font-semibold text-fg-muted transition-colors hover:border-hospital/40"
+                            }
+                          >
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <textarea
                       id={`alarm-${factor.key}`}
                       value={draft[factor.key] ?? ""}
@@ -220,6 +265,35 @@ function DrawerPanel({
                 </div>
               </motion.div>
             ))}
+          </div>
+          {/* Caractère évitable, prévu par la grille du CHIC */}
+          <div className="mt-6 rounded-2xl border border-line bg-muted p-5">
+            <p className="text-sm font-bold text-fg">
+              L&apos;événement était-il évitable ?
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(
+                [
+                  ["oui", "Oui"],
+                  ["non", "Non"],
+                  ["indetermine", "Indéterminé"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setAvoidable(value)}
+                  aria-pressed={avoidable === value}
+                  className={
+                    avoidable === value
+                      ? "min-h-10 rounded-full border border-transparent bg-ink px-4 text-xs font-bold text-on-ink"
+                      : "min-h-10 rounded-full border border-line bg-surface px-4 text-xs font-bold text-fg-muted transition-colors hover:border-hospital/40"
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       </div>
