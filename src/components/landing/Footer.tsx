@@ -183,6 +183,12 @@ export function Footer() {
               Bénin · Santé publique
             </span>
             <Link
+              href="/qualite"
+              className="text-xs font-medium text-fg-muted/70 transition-colors hover:text-hospital"
+            >
+              Cellule qualité
+            </Link>
+            <Link
               href="/admin"
               className="text-xs font-medium text-fg-muted/70 transition-colors hover:text-hospital"
             >

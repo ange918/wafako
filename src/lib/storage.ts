@@ -14,9 +14,12 @@ export const STORAGE_KEYS = {
   incidents: `${PREFIX}incidents`,
   actions: `${PREFIX}actions`,
   crex: `${PREFIX}crex`,
+  crexCalendar: `${PREFIX}crexCalendar`,
   forcedOffline: `${PREFIX}forcedOffline`,
   theme: `${PREFIX}theme`,
   session: `${PREFIX}session`,
+  quality: `${PREFIX}qualitySession`,
+  notifications: `${PREFIX}notifications`,
   adminSession: `${PREFIX}adminSession`,
 } as const;
 

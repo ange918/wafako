@@ -21,6 +21,7 @@ import {
   UsersSection,
 } from "./AdminSections";
 import { Stat } from "@/components/ui/Stat";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { clockStore } from "@/lib/external-store";
@@ -119,6 +120,7 @@ export function AdminShell() {
                 {header.subtitle}
               </p>
             </div>
+            <NotificationBell />
             <ThemeToggle />
           </div>
         </header>

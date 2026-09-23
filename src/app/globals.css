@@ -146,3 +146,70 @@ body {
     scroll-behavior: auto;
   }
 }
+
+/*
+ * Impression du compte rendu de CREX.
+ *
+ * Le navigateur sert de générateur PDF : seule la feuille marquée
+ * `print-sheet` est imprimée, le reste de la console disparaît. Les jetons de
+ * couleur sont réécrits en clair pour que le document reste lisible même si
+ * l'écran est en thème sombre.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible;
+  }
+
+  .print-sheet {
+    --canvas: #ffffff;
+    --surface: #ffffff;
+    --elevated: #ffffff;
+    --muted: #f4f6f8;
+    --line: #c8d0da;
+    --fg: #101828;
+    --fg-muted: #475467;
+    --ink: #101828;
+    --hospital: #0f4c81;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Les tableaux du compte rendu doivent tenir sans barre de défilement. */
+  .print-sheet .overflow-x-auto {
+    overflow: visible;
+  }
+
+  .print-sheet table {
+    min-width: 0;
+    width: 100%;
+    font-size: 10px;
+  }
+
+  .print-sheet tr {
+    break-inside: avoid;
+  }
+
+  .print-sheet section {
+    break-inside: avoid-page;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

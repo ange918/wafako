@@ -1,9 +1,14 @@
 import type {
   AlarmFactor,
+  CareStage,
   Category,
+  CriticalityLevel,
+  EventNature,
   Hospital,
   Severity,
+  TriageDecision,
   UserProfile,
+  VictimKind,
 } from "@/types";
 
 /**
@@ -114,6 +119,7 @@ export const SEVERITY_ORDER: Severity[] = [
 
 export const STATUS_LABELS = {
   nouveau: "Nouveau",
+  classe: "Classé",
   en_analyse: "En analyse",
   action_en_cours: "Action en cours",
   cloture: "Clôturé",
@@ -125,50 +131,171 @@ export const ACTION_STATUS_LABELS = {
   termine: "Terminé",
 } as const;
 
-/** Les 7 facteurs du protocole ALARM. */
+/**
+ * Les 7 familles de facteurs du protocole ALARM.
+ *
+ * Libellés, ordre et sous-facteurs repris de la « Grille d'Analyse Systémique
+ * d'un Événement Indésirable » du Centre Hospitalier International de Calavi.
+ */
 export const ALARM_FACTORS: AlarmFactor[] = [
   {
-    key: "patient",
-    label: "Facteurs liés au patient",
-    description: "État clinique, comorbidités, langue, adhésion aux soins",
-  },
-  {
-    key: "tache",
-    label: "Facteurs liés à la tâche",
+    key: "institution",
+    label: "Contexte institutionnel",
     description:
-      "Protocoles disponibles, clarté des consignes, aide à la décision",
+      "Ce qui dépasse l'établissement : tutelle, financement, cadre réglementaire",
+    items: [
+      "Contraintes économiques et financières",
+      "Ressources insuffisantes",
+      "Défaut de collaboration avec d'autres structures",
+      "Absence de stratégie adaptée",
+      "Faible culture sécurité / qualité",
+      "Contexte social ou réglementaire défavorable",
+    ],
   },
   {
-    key: "individu",
-    label: "Facteurs liés au soignant",
-    description: "Compétence, fatigue, charge mentale, expérience du poste",
-  },
-  {
-    key: "equipe",
-    label: "Facteurs liés à l'équipe",
-    description: "Communication, transmissions, supervision, entraide",
+    key: "organisation",
+    label: "Management et organisation",
+    description: "Pilotage, répartition des responsabilités, planification",
+    items: [
+      "Changement d'organisation",
+      "Mauvaise définition des responsabilités",
+      "Défaut de coordination",
+      "Effectifs inadaptés",
+      "Mauvaise planification",
+      "Défaut d'information",
+      "Rapports hiérarchiques tendus",
+    ],
   },
   {
     key: "environnement",
     label: "Environnement de travail",
-    description: "Effectifs, matériel, locaux, interruptions, bruit",
+    description: "Locaux, matériel, charge de travail, conditions d'exercice",
+    items: [
+      "Locaux ou matériel inadaptés",
+      "Conditions de travail défavorables",
+      "Charge de travail excessive",
+      "Défaut de formation au matériel",
+      "Modification de l'environnement",
+    ],
   },
   {
-    key: "organisation",
-    label: "Organisation & management",
-    description: "Politique de service, planification, ressources allouées",
+    key: "equipe",
+    label: "Équipe",
+    description: "Communication, transmissions, supervision, cohésion",
+    items: [
+      "Mauvaise composition de l'équipe",
+      "Défaut de communication",
+      "Mauvaise transmission d'information",
+      "Conflits internes",
+      "Défaut de supervision",
+    ],
   },
   {
-    key: "institution",
-    label: "Contexte institutionnel",
-    description: "Tutelle, financement, contraintes réglementaires",
+    key: "procedures",
+    label: "Procédures opérationnelles",
+    description:
+      "Protocoles : existence, accessibilité, pertinence, application",
+    items: [
+      "Absence de protocoles",
+      "Protocoles peu connus",
+      "Protocoles inadaptés",
+      "Difficulté d'accès à l'information",
+      "Protocoles non suivis",
+    ],
+  },
+  {
+    key: "individu",
+    label: "Facteurs individuels",
+    description:
+      "Qualification, expérience, état physique et mental du soignant",
+    items: [
+      "Défaut de qualification",
+      "Manque de connaissances",
+      "Manque d'expérience",
+      "Formation incomplète",
+      "Non-respect des consignes",
+      "Mauvaise disposition physique ou mentale",
+    ],
+  },
+  {
+    key: "patient",
+    label: "Facteurs liés au patient",
+    description: "État clinique, contexte social, communication",
+    items: [
+      "État de santé complexe",
+      "Prise en charge en urgence",
+      "Difficultés de communication",
+      "Facteurs sociaux ou familiaux",
+      "Personnalité",
+    ],
   },
 ];
 
-/**
- * Profil vide, utilisé tant qu'aucun compte n'a été créé sur cet appareil.
- * Aucune identité n'est inventée : les champs se remplissent à l'inscription.
- */
+/* ------------------------------------------------------------------ */
+/* Vocabulaire de classement de la cellule qualité                      */
+/* ------------------------------------------------------------------ */
+
+export const EVENT_NATURE_LABELS: Record<EventNature, string> = {
+  evenement: "Événement",
+  dysfonctionnement: "Dysfonctionnement",
+};
+
+/** Abréviations Acc-Cs / Prépa / Ttt des comptes rendus du CHIC. */
+export const CARE_STAGE_LABELS: Record<CareStage, string> = {
+  accueil: "Accueil et consultation",
+  preparation: "Préparation",
+  traitement: "Traitement",
+  autre: "Autre étape",
+};
+
+export const CRITICALITY_LABELS: Record<CriticalityLevel, string> = {
+  acceptable: "Acceptable",
+  tolerable: "Tolérable",
+  inacceptable: "Inacceptable",
+};
+
+export const CRITICALITY_ORDER: CriticalityLevel[] = [
+  "acceptable",
+  "tolerable",
+  "inacceptable",
+];
+
+/** SS / ACT / AA dans les comptes rendus du CHIC. */
+export const DECISION_LABELS: Record<TriageDecision, string> = {
+  sans_suivi: "Sans suivi",
+  action: "Action d'amélioration",
+  analyse_approfondie: "Analyse approfondie",
+};
+
+export const DECISION_CODES: Record<TriageDecision, string> = {
+  sans_suivi: "SS",
+  action: "ACT",
+  analyse_approfondie: "AA",
+};
+
+export const DECISION_HINTS: Record<TriageDecision, string> = {
+  sans_suivi:
+    "Événement ponctuel ou déjà résolu. Une justification est attendue en commentaire.",
+  action:
+    "Donne lieu à une action d'amélioration, revue lors du prochain CREX.",
+  analyse_approfondie:
+    "Déclenche la grille ALARM et, si nécessaire, un rassemblement immédiat.",
+};
+
+export const VICTIM_LABELS: Record<VictimKind, string> = {
+  patient: "Patient",
+  professionnel: "Professionnel de santé",
+  usager: "Usager ou accompagnant",
+  aucune: "Aucune victime",
+};
+
+export const VICTIM_ORDER: VictimKind[] = [
+  "patient",
+  "professionnel",
+  "usager",
+  "aucune",
+];
+
 export const EMPTY_PROFILE: UserProfile = {
   firstName: "",
   lastName: "",

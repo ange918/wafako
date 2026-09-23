@@ -2,14 +2,47 @@
 
 import { useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
-import { CalendarCheck, CalendarClock, MapPin, Users } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarClock,
+  MapPin,
+  Siren,
+  Users,
+} from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { fadeUp, stagger } from "@/lib/motion";
 import { clockStore } from "@/lib/external-store";
+import {
+  crexDayFor,
+  crexPeriod,
+  formatCrexPeriod,
+  nextCrexDate,
+} from "@/lib/crex";
 import { countdownParts, formatDateTime } from "@/lib/utils";
 
 export function CrexTab() {
-  const { crexMeetings, nextCrex } = useAppState();
+  const { crexMeetings, crexCalendar, nextCrex, profile } = useAppState();
+
+  const now = useSyncExternalStore(
+    clockStore.subscribe,
+    clockStore.getSnapshot,
+    clockStore.getServerSnapshot,
+  );
+
+  // La réunion mensuelle n'est pas saisie : elle découle du jour retenu pour
+  // le service. Un rassemblement convoqué en urgence passe devant s'il tombe
+  // avant cette échéance.
+  const service = profile.service || "votre service";
+  const day = crexDayFor(crexCalendar, profile.service);
+  const monthly = nextCrexDate(day, now);
+  const period = monthly ? crexPeriod(monthly, day) : null;
+
+  const urgentFirst =
+    nextCrex &&
+    monthly &&
+    new Date(nextCrex.scheduledAt).getTime() < monthly.getTime()
+      ? nextCrex
+      : null;
 
   return (
     <motion.div
@@ -27,31 +60,50 @@ export function CrexTab() {
         </p>
       </motion.div>
 
-      {nextCrex ? (
+      {urgentFirst ? (
         <motion.div variants={fadeUp}>
           <NextCrexCard
-            title={nextCrex.title}
-            scheduledAt={nextCrex.scheduledAt}
-            facilitator={nextCrex.facilitator}
-            service={nextCrex.service}
-            participants={nextCrex.participants}
-            references={nextCrex.incidentReferences}
+            title={urgentFirst.title}
+            scheduledAt={urgentFirst.scheduledAt}
+            facilitator={urgentFirst.facilitator}
+            service={urgentFirst.service}
+            participants={urgentFirst.participants}
+            references={urgentFirst.incidentReferences}
+            urgent={urgentFirst.kind === "urgence"}
           />
         </motion.div>
-      ) : (
-        <motion.p
-          variants={fadeUp}
-          className="rounded-3xl border border-dashed border-line bg-surface px-5 py-10 text-center text-sm text-fg-muted"
-        >
-          Aucune réunion planifiée pour le moment.
-        </motion.p>
-      )}
+      ) : null}
+
+      {/* Réunion mensuelle à date fixe, propre au service */}
+      <motion.div variants={fadeUp}>
+        {monthly && period ? (
+          <NextCrexCard
+            title={`CREX mensuel — ${service}`}
+            scheduledAt={monthly.toISOString()}
+            service={service}
+            note={`Fiches classées ${formatCrexPeriod(period)}`}
+            references={[]}
+          />
+        ) : (
+          <p className="rounded-3xl border border-dashed border-line bg-surface px-5 py-10 text-center text-sm text-fg-muted">
+            Calcul de la prochaine réunion…
+          </p>
+        )}
+      </motion.div>
+
+      <motion.p
+        variants={fadeUp}
+        className="px-1 text-xs leading-relaxed text-fg-muted"
+      >
+        La réunion se tient le {day} de chaque mois pour {service}. Le jour se
+        règle dans la configuration de l&apos;établissement.
+      </motion.p>
 
       <motion.section variants={fadeUp}>
         <h3 className="font-display mb-3 px-1 text-base font-extrabold text-fg">
           Historique
         </h3>
-        {crexMeetings.filter((meeting) => meeting.id !== nextCrex?.id)
+        {crexMeetings.filter((meeting) => meeting.id !== urgentFirst?.id)
           .length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-surface px-5 py-8 text-center text-sm text-fg-muted">
             Aucune réunion passée à afficher.
@@ -59,7 +111,7 @@ export function CrexTab() {
         ) : null}
         <ul className="space-y-2.5">
           {crexMeetings
-            .filter((meeting) => meeting.id !== nextCrex?.id)
+            .filter((meeting) => meeting.id !== urgentFirst?.id)
             .map((meeting) => (
               <li
                 key={meeting.id}
@@ -104,13 +156,17 @@ function NextCrexCard({
   service,
   participants,
   references,
+  note,
+  urgent = false,
 }: {
   title: string;
   scheduledAt: string;
-  facilitator: string;
+  facilitator?: string;
   service: string;
-  participants: number;
+  participants?: number;
   references: string[];
+  note?: string;
+  urgent?: boolean;
 }) {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-on-ink shadow-lift">
@@ -119,8 +175,9 @@ function NextCrexCard({
         className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-vivid/25 blur-3xl"
       />
 
-      <p className="relative text-xs font-bold tracking-wide text-on-ink/60 uppercase">
-        Prochaine réunion
+      <p className="relative flex items-center gap-2 text-xs font-bold tracking-wide text-on-ink/60 uppercase">
+        {urgent ? <Siren className="size-4 text-alert" /> : null}
+        {urgent ? "Rassemblement immédiat" : "Prochaine réunion"}
       </p>
       <h3 className="font-display relative mt-2 text-xl leading-snug font-extrabold">
         {title}
@@ -136,10 +193,18 @@ function NextCrexCard({
           <MapPin className="size-4 shrink-0 text-softblue" />
           Service {service}
         </p>
-        <p className="flex items-center gap-2">
-          <Users className="size-4 shrink-0 text-softblue" />
-          {participants} participants · animé par {facilitator}
-        </p>
+        {facilitator ? (
+          <p className="flex items-center gap-2">
+            <Users className="size-4 shrink-0 text-softblue" />
+            {participants ?? 0} participants · animé par {facilitator}
+          </p>
+        ) : null}
+        {note ? (
+          <p className="flex items-center gap-2">
+            <CalendarClock className="size-4 shrink-0 text-softblue" />
+            {note}
+          </p>
+        ) : null}
       </div>
 
       {references.length > 0 ? (
