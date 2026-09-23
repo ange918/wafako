@@ -12,6 +12,10 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { CATEGORY_ICONS } from "@/components/dashboard/categoryIcons";
 import {
   CATEGORIES,
+  CRITICALITY_LABELS,
+  DECISION_CODES,
+  DECISION_LABELS,
+  EVENT_NATURE_LABELS,
   SERVICES,
   SEVERITY_LABELS,
   SEVERITY_ORDER,
@@ -104,12 +108,15 @@ export function IncidentsTable({
         <>
           {/* Table sur desktop */}
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-5xl text-left text-sm">
               <thead>
                 <tr className="border-b border-line text-xs font-bold text-fg-muted uppercase">
                   <th className="px-6 py-3">Référence</th>
                   <th className="px-6 py-3">Catégorie</th>
                   <th className="px-6 py-3">Service</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Criticité</th>
+                  <th className="px-6 py-3">Décision</th>
                   <th className="px-6 py-3">Gravité</th>
                   <th className="px-6 py-3">Statut</th>
                   <th className="px-6 py-3">Déclaré le</th>
@@ -124,6 +131,9 @@ export function IncidentsTable({
                     CATEGORIES.find((item) => item.id === first)?.label ?? "—";
                   const label =
                     others.length > 0 ? `${base} +${others.length}` : base;
+                  // Renseigné par la cellule qualité : vide tant que la fiche
+                  // n'est pas passée entre ses mains.
+                  const classification = incident.classification;
                   return (
                     <motion.tr
                       key={incident.id}
@@ -143,6 +153,28 @@ export function IncidentsTable({
                       </td>
                       <td className="px-6 py-4 text-fg-muted">
                         {incident.service}
+                      </td>
+                      <td className="px-6 py-4 text-fg-muted">
+                        {classification
+                          ? EVENT_NATURE_LABELS[classification.nature]
+                          : "—"}
+                      </td>
+                      <td className="px-6 py-4 text-fg-muted">
+                        {classification
+                          ? CRITICALITY_LABELS[classification.criticality]
+                          : "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        {classification ? (
+                          <span
+                            title={DECISION_LABELS[classification.decision]}
+                            className="font-display rounded-lg bg-hospital/10 px-2.5 py-1 text-xs font-extrabold text-hospital"
+                          >
+                            {DECISION_CODES[classification.decision]}
+                          </span>
+                        ) : (
+                          <span className="text-fg-muted">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <Badge tone={SEVERITY_TONE[incident.severity]}>
@@ -195,6 +227,9 @@ export function IncidentsTable({
                   </p>
                   <p className="mt-2 text-[11px] text-fg-muted/80">
                     {incident.service} · {formatDate(incident.declaredAt)}
+                    {incident.classification
+                      ? ` · ${CRITICALITY_LABELS[incident.classification.criticality]} · ${DECISION_CODES[incident.classification.decision]}`
+                      : " · non classé"}
                   </p>
                 </button>
               </li>

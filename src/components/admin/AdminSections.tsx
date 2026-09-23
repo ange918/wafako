@@ -1,8 +1,10 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
 import {
   Building2,
+  CalendarDays,
   ClipboardList,
   Mail,
   ShieldCheck,
@@ -23,6 +25,13 @@ import {
   SERVICES,
   SEVERITY_LABELS,
 } from "@/lib/mock-data";
+import { clockStore } from "@/lib/external-store";
+import {
+  MAX_CREX_DAY,
+  clampCrexDay,
+  crexDayFor,
+  nextCrexDate,
+} from "@/lib/crex";
 import { fadeUp, stagger } from "@/lib/motion";
 import { formatDate, initials } from "@/lib/utils";
 
@@ -47,15 +56,20 @@ export function ActionsSection() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-3xl text-left text-sm">
+          {/* Colonnes du tableau de suivi des actions de l'établissement. */}
+          <table className="w-full min-w-5xl text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs font-bold text-fg-muted uppercase">
-                <th className="px-6 py-3">Action</th>
-                <th className="px-6 py-3">Incident</th>
-                <th className="px-6 py-3">Responsable</th>
-                <th className="px-6 py-3">Échéance</th>
+                <th className="px-6 py-3">Code EVT</th>
+                <th className="px-6 py-3">Résumé</th>
+                <th className="px-6 py-3">Description de l&apos;action</th>
+                <th className="px-6 py-3">Pilote</th>
                 <th className="px-6 py-3">Priorité</th>
-                <th className="px-6 py-3">Statut</th>
+                <th className="px-6 py-3">Date de décision</th>
+                <th className="px-6 py-3">Échéance</th>
+                <th className="px-6 py-3">Suivi</th>
+                <th className="px-6 py-3">État</th>
+                <th className="px-6 py-3">Clôture</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -64,25 +78,39 @@ export function ActionsSection() {
                   key={action.id}
                   className="transition-colors hover:bg-muted"
                 >
-                  <td className="max-w-sm px-6 py-4 font-semibold text-fg">
-                    {action.title}
-                  </td>
                   <td className="px-6 py-4 font-display font-extrabold text-fg-muted">
                     {action.incidentReference}
                   </td>
-                  <td className="px-6 py-4 text-fg-muted">{action.owner}</td>
-                  <td className="px-6 py-4 text-fg-muted">
-                    {formatDate(action.dueDate)}
+                  <td className="px-6 py-4 font-semibold text-fg">
+                    {action.summary ?? action.title}
                   </td>
+                  <td className="max-w-sm px-6 py-4 text-fg-muted">
+                    {action.title}
+                  </td>
+                  <td className="px-6 py-4 text-fg-muted">{action.owner}</td>
                   <td className="px-6 py-4">
                     <Badge tone={SEVERITY_TONE[action.priority]}>
                       {SEVERITY_LABELS[action.priority]}
                     </Badge>
                   </td>
+                  <td className="px-6 py-4 text-fg-muted">
+                    {action.decisionDate
+                      ? formatDate(action.decisionDate)
+                      : "—"}
+                  </td>
+                  <td className="px-6 py-4 text-fg-muted">
+                    {formatDate(action.dueDate)}
+                  </td>
+                  <td className="max-w-xs px-6 py-4 text-fg-muted">
+                    {action.followUp ?? "—"}
+                  </td>
                   <td className="px-6 py-4">
                     <Badge tone={ACTION_STATUS_TONE[action.status]}>
                       {ACTION_STATUS_LABELS[action.status]}
                     </Badge>
+                  </td>
+                  <td className="px-6 py-4 text-fg-muted">
+                    {action.closedAt ? formatDate(action.closedAt) : "—"}
                   </td>
                 </tr>
               ))}
@@ -245,6 +273,78 @@ export function UsersSection() {
   );
 }
 
+/**
+ * Calendrier des CREX.
+ *
+ * Les comptes rendus de l'établissement montrent des dates de réunion
+ * distinctes d'un service à l'autre : le jour du mois se règle donc service
+ * par service.
+ */
+function CrexCalendarCard() {
+  const { crexCalendar, setCrexDay } = useAppState();
+  const now = useSyncExternalStore(
+    clockStore.subscribe,
+    clockStore.getSnapshot,
+    clockStore.getServerSnapshot,
+  );
+
+  return (
+    <Card>
+      <CardHeader
+        title="Calendrier des CREX"
+        subtitle="Jour du mois retenu pour la réunion de chaque service"
+      />
+      <ul className="divide-y divide-line">
+        {SERVICES.map((service) => {
+          const day = crexDayFor(crexCalendar, service);
+          const next = nextCrexDate(day, now);
+          return (
+            <li
+              key={service}
+              className="flex flex-wrap items-center gap-3 px-6 py-4"
+            >
+              <CalendarDays className="size-5 shrink-0 text-hospital" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-fg">{service}</p>
+                <p className="text-xs text-fg-muted">
+                  {next
+                    ? `Prochaine réunion le ${formatDate(next.toISOString())}`
+                    : "Prochaine réunion calculée après chargement"}
+                </p>
+              </div>
+              <label className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-fg-muted">
+                  Jour
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_CREX_DAY}
+                  value={day}
+                  onChange={(event) =>
+                    setCrexDay(
+                      service,
+                      clampCrexDay(Number(event.target.value)),
+                    )
+                  }
+                  aria-label={`Jour du CREX — ${service}`}
+                  className="h-10 w-20 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-fg outline-none focus:border-hospital"
+                />
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-line px-6 py-4 text-xs leading-relaxed text-fg-muted">
+        Le jour est borné au 28 pour que la réunion tombe tous les mois, février
+        compris. Chaque CREX traite les fiches classées depuis le précédent ; un
+        cas qui ne peut pas attendre donne lieu à un rassemblement immédiat,
+        convoqué par la cellule qualité.
+      </p>
+    </Card>
+  );
+}
+
 export function ConfigurationSection() {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
@@ -269,6 +369,8 @@ export function ConfigurationSection() {
       </Card>
 
       <div className="space-y-6">
+        <CrexCalendarCard />
+
         <Card>
           <CardHeader
             title="Services & rôles"

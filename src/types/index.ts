@@ -107,6 +107,8 @@ export interface Incident {
   occurredAt: string;
   declaredAt: string;
   declaredBy: string;
+  /** Catégorie professionnelle du déclarant : colonne « Cat/Prof » du relevé. */
+  declaredByRole?: string;
   /** Nom du fichier joint, simulé — aucun binaire n'est stocké. */
   attachmentName?: string;
   sync: SyncStatus;
@@ -117,18 +119,41 @@ export interface Incident {
   alarmChecks?: Partial<Record<AlarmFactorKey, string[]>>;
   /** Évaluation du caractère évitable, prévue par la grille du CHIC. */
   avoidable?: "oui" | "non" | "indetermine";
+  /**
+   * Autres fiches portant sur le même événement, rapprochées par la cellule
+   * qualité. Colonne « N° EVT Groupe » du relevé.
+   */
+  relatedReferences?: string[];
+  /** Plan d'action de l'étape 3 de la grille ALARM. */
+  alarmPlan?: AlarmPlanRow[];
 }
 
 export interface ActionItem {
   id: string;
   title: string;
+  /** Intitulé court, colonne « Résumé » du tableau de suivi. */
+  summary?: string;
   incidentReference: string;
   service: string;
   owner: string;
+  /** Date à laquelle le CREX a arrêté l'action. */
+  decisionDate?: string;
   dueDate: string;
   status: ActionStatus;
   priority: Severity;
+  /** Point d'avancement noté à la réunion suivante. */
+  followUp?: string;
+  /** Date de clôture effective, une fois l'action soldée. */
+  closedAt?: string;
 }
+
+/**
+ * Jour du mois retenu pour le CREX, service par service.
+ *
+ * Les comptes rendus du CHIC montrent des dates distinctes d'un service à
+ * l'autre : le calendrier est donc réglé par service, et non globalement.
+ */
+export type CrexCalendar = Record<string, number>;
 
 /** Réunion périodique (CREX) ou rassemblement déclenché en urgence. */
 export type MeetingKind = "crex" | "urgence";
@@ -153,6 +178,8 @@ export interface AppNotification {
   createdAt: string;
   /** Un rassemblement urgent touche tous les utilisateurs, quel que soit leur poste. */
   urgent: boolean;
+  /** « direction » pour le rapport transmis au chef d'établissement après classement. */
+  audience?: "tous" | "direction";
   meetingId?: string;
   read: boolean;
 }
@@ -169,6 +196,22 @@ export type AlarmFactorKey =
   | "procedures"
   | "individu"
   | "patient";
+
+/**
+ * Ligne du plan d'action de la grille ALARM (étape 3), une par famille de
+ * facteurs retenue : cause identifiée, action décidée et son suivi.
+ */
+export interface AlarmPlanRow {
+  factor: AlarmFactorKey;
+  cause: string;
+  action: string;
+  priority: Severity;
+  owner: string;
+  /** Échéance au format aaaa-mm-jj, telle que saisie. */
+  dueDate: string;
+  indicators: string;
+  notes: string;
+}
 
 export interface AlarmFactor {
   key: AlarmFactorKey;

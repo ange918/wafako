@@ -8,15 +8,22 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { EMPTY_PROFILE } from "@/lib/mock-data";
+import {
+  CRITICALITY_LABELS,
+  DECISION_LABELS,
+  EMPTY_PROFILE,
+} from "@/lib/mock-data";
 import { readJson, STORAGE_KEYS, writeJson } from "@/lib/storage";
 import { createLazyStore, networkStore } from "@/lib/external-store";
+import { clampCrexDay } from "@/lib/crex";
 import { uid } from "@/lib/utils";
 import type {
   ActionItem,
   ActionStatus,
+  AlarmPlanRow,
   AppNotification,
   Classification,
+  CrexCalendar,
   CrexMeeting,
   DeclarationDraft,
   Incident,
@@ -28,6 +35,8 @@ interface PersistedState {
   incidents: Incident[];
   actions: ActionItem[];
   crexMeetings: CrexMeeting[];
+  /** Jour du mois retenu pour le CREX, service par service. */
+  crexCalendar: CrexCalendar;
   forcedOffline: boolean;
   notifications: AppNotification[];
   /** Session soignant simulée : conditionne l'accès à /dashboard. */
@@ -57,6 +66,7 @@ const SERVER_STATE: PersistedState = {
   incidents: [],
   actions: [],
   crexMeetings: [],
+  crexCalendar: {},
   forcedOffline: false,
   notifications: [],
   isAuthenticated: false,
@@ -73,6 +83,7 @@ const stateStore = createLazyStore<PersistedState>({
     incidents: readJson<Incident[]>(STORAGE_KEYS.incidents, []),
     actions: readJson<ActionItem[]>(STORAGE_KEYS.actions, []),
     crexMeetings: readJson<CrexMeeting[]>(STORAGE_KEYS.crex, []),
+    crexCalendar: readJson<CrexCalendar>(STORAGE_KEYS.crexCalendar, {}),
     forcedOffline: readJson(STORAGE_KEYS.forcedOffline, false),
     notifications: readJson<AppNotification[]>(STORAGE_KEYS.notifications, []),
     isAuthenticated: readJson(STORAGE_KEYS.session, false),
@@ -89,6 +100,8 @@ function patchState(patch: Partial<PersistedState>) {
   if (patch.incidents) writeJson(STORAGE_KEYS.incidents, next.incidents);
   if (patch.actions) writeJson(STORAGE_KEYS.actions, next.actions);
   if (patch.crexMeetings) writeJson(STORAGE_KEYS.crex, next.crexMeetings);
+  if (patch.crexCalendar)
+    writeJson(STORAGE_KEYS.crexCalendar, next.crexCalendar);
   if (patch.forcedOffline !== undefined) {
     writeJson(STORAGE_KEYS.forcedOffline, next.forcedOffline);
   }
@@ -105,6 +118,14 @@ function patchState(patch: Partial<PersistedState>) {
     writeJson(STORAGE_KEYS.adminSession, next.isAdminAuthenticated);
   }
   stateStore.set(next);
+}
+
+/** Ce que le panneau d'analyse enregistre en une fois. */
+export interface AlarmAnalysis {
+  alarm: Incident["alarm"];
+  alarmChecks?: Incident["alarmChecks"];
+  avoidable?: Incident["avoidable"];
+  alarmPlan?: AlarmPlanRow[];
 }
 
 interface AppStateValue extends PersistedState {
@@ -126,7 +147,10 @@ interface AppStateValue extends PersistedState {
   classifyIncident: (
     incidentId: string,
     classification: Classification,
+    relatedReferences?: string[],
   ) => void;
+  /** Règle le jour du mois du CREX d'un service. */
+  setCrexDay: (service: string, day: number) => void;
   notify: (
     notification: Omit<AppNotification, "id" | "createdAt" | "read">,
   ) => void;
@@ -139,12 +163,7 @@ interface AppStateValue extends PersistedState {
   /** Fiches reçues et pas encore classées par la cellule qualité. */
   pendingClassification: number;
   updateActionStatus: (id: string, status: ActionStatus) => void;
-  updateAlarm: (
-    incidentId: string,
-    alarm: Incident["alarm"],
-    alarmChecks?: Incident["alarmChecks"],
-    avoidable?: Incident["avoidable"],
-  ) => void;
+  updateAlarm: (incidentId: string, analysis: AlarmAnalysis) => void;
   scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => void;
   syncPending: () => void;
   clearData: () => void;
@@ -219,6 +238,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       occurredAt: draft.occurredAt,
       declaredAt: now.toISOString(),
       declaredBy: `${current.profile.firstName.charAt(0)}. ${current.profile.lastName}`,
+      declaredByRole: current.profile.role || undefined,
       attachmentName: draft.attachmentName,
       // Hors-ligne, la fiche reste en file d'attente locale.
       sync:
@@ -229,32 +249,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     patchState({ incidents: [incident, ...current.incidents] });
     return incident;
   }, []);
-
-  /**
-   * Classement par la cellule qualité. Une décision « analyse approfondie »
-   * fait passer la fiche en analyse ; les autres la marquent classée.
-   */
-  const classifyIncident = useCallback(
-    (incidentId: string, classification: Classification) => {
-      patchState({
-        incidents: stateStore.get().incidents.map((incident) =>
-          incident.id === incidentId
-            ? {
-                ...incident,
-                classification,
-                status:
-                  classification.decision === "analyse_approfondie"
-                    ? "en_analyse"
-                    : classification.decision === "action"
-                      ? "action_en_cours"
-                      : "cloture",
-              }
-            : incident,
-        ),
-      });
-    },
-    [],
-  );
 
   const notify = useCallback(
     (notification: Omit<AppNotification, "id" | "createdAt" | "read">) => {
@@ -271,6 +265,58 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       });
     },
     [],
+  );
+
+  /**
+   * Classement par la cellule qualité. Une décision « analyse approfondie »
+   * fait passer la fiche en analyse ; les autres la marquent classée.
+   *
+   * Le classement enregistré, un rapport part vers la direction : c'est le
+   * chef d'établissement qui est informé de la décision retenue, pas la
+   * cellule qualité qui se la renvoie à elle-même.
+   */
+  const classifyIncident = useCallback(
+    (
+      incidentId: string,
+      classification: Classification,
+      relatedReferences?: string[],
+    ) => {
+      const target = stateStore
+        .get()
+        .incidents.find((incident) => incident.id === incidentId);
+      patchState({
+        incidents: stateStore.get().incidents.map((incident) =>
+          incident.id === incidentId
+            ? {
+                ...incident,
+                classification,
+                relatedReferences:
+                  relatedReferences && relatedReferences.length > 0
+                    ? relatedReferences
+                    : undefined,
+                status:
+                  classification.decision === "analyse_approfondie"
+                    ? "en_analyse"
+                    : classification.decision === "action"
+                      ? "action_en_cours"
+                      : "cloture",
+              }
+            : incident,
+        ),
+      });
+      if (!target) return;
+      notify({
+        title: `Rapport de classement — ${target.reference}`,
+        body:
+          `${target.service} · criticité ${CRITICALITY_LABELS[
+            classification.criticality
+          ].toLowerCase()} · ${DECISION_LABELS[classification.decision].toLowerCase()}. ` +
+          `Classé par ${classification.classifiedBy}.`,
+        urgent: false,
+        audience: "direction",
+      });
+    },
+    [notify],
   );
 
   const markNotificationsRead = useCallback(() => {
@@ -316,20 +362,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateAlarm = useCallback(
-    (
-      incidentId: string,
-      alarm: Incident["alarm"],
-      alarmChecks?: Incident["alarmChecks"],
-      avoidable?: Incident["avoidable"],
-    ) => {
+    (incidentId: string, analysis: AlarmAnalysis) => {
       patchState({
         incidents: stateStore.get().incidents.map((incident) =>
           incident.id === incidentId
             ? {
                 ...incident,
-                alarm,
-                alarmChecks: alarmChecks ?? incident.alarmChecks,
-                avoidable: avoidable ?? incident.avoidable,
+                alarm: analysis.alarm,
+                alarmChecks: analysis.alarmChecks ?? incident.alarmChecks,
+                avoidable: analysis.avoidable ?? incident.avoidable,
+                alarmPlan: analysis.alarmPlan ?? incident.alarmPlan,
                 status: "en_analyse",
               }
             : incident,
@@ -338,6 +380,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     },
     [],
   );
+
+  const setCrexDay = useCallback((service: string, day: number) => {
+    patchState({
+      crexCalendar: {
+        ...stateStore.get().crexCalendar,
+        [service]: clampCrexDay(day),
+      },
+    });
+  }, []);
 
   const scheduleCrex = useCallback((meeting: Omit<CrexMeeting, "id">) => {
     patchState({
@@ -430,6 +481,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     updateActionStatus,
     updateAlarm,
     scheduleCrex,
+    setCrexDay,
     syncPending,
     clearData,
   };

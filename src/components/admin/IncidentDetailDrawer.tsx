@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, FileDown, Save, X } from "lucide-react";
+import { Check, Save, X } from "lucide-react";
 import {
   Badge,
   INCIDENT_STATUS_TONE,
@@ -13,14 +13,46 @@ import { CATEGORY_ICONS } from "@/components/dashboard/categoryIcons";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import {
   ALARM_FACTORS,
+  CARE_STAGE_LABELS,
   CATEGORIES,
+  CRITICALITY_LABELS,
+  DECISION_CODES,
+  DECISION_LABELS,
+  EVENT_NATURE_LABELS,
   HOSPITALS,
   SEVERITY_LABELS,
+  SEVERITY_ORDER,
   STATUS_LABELS,
+  VICTIM_LABELS,
 } from "@/lib/mock-data";
 import { backdrop } from "@/lib/motion";
 import { formatDateTime } from "@/lib/utils";
-import type { AlarmFactorKey, Incident } from "@/types";
+import type { AlarmFactorKey, AlarmPlanRow, Incident, Severity } from "@/types";
+
+/** Ligne de plan vierge, créée à la volée pour une famille retenue. */
+function emptyPlanRow(factor: AlarmFactorKey): AlarmPlanRow {
+  return {
+    factor,
+    cause: "",
+    action: "",
+    priority: "modere",
+    owner: "",
+    dueDate: "",
+    indicators: "",
+    notes: "",
+  };
+}
+
+function planRowHasContent(row: AlarmPlanRow) {
+  return [
+    row.cause,
+    row.action,
+    row.owner,
+    row.dueDate,
+    row.indicators,
+    row.notes,
+  ].some((value) => value.trim().length > 0);
+}
 
 /** Panneau latéral d'analyse : grille ALARM à 7 facteurs. */
 export function IncidentDetailDrawer({
@@ -83,7 +115,29 @@ function DrawerPanel({
   const [avoidable, setAvoidable] = useState<Incident["avoidable"]>(
     incident.avoidable ?? "indetermine",
   );
+  // Plan d'action de l'étape 3, indexé par famille pour suivre les cases
+  // cochées sans recopier l'état à chaque rendu.
+  const [plan, setPlan] = useState<
+    Partial<Record<AlarmFactorKey, AlarmPlanRow>>
+  >(() =>
+    Object.fromEntries(
+      (incident.alarmPlan ?? []).map((row) => [row.factor, row]),
+    ),
+  );
   const [saved, setSaved] = useState(false);
+
+  const setPlanField = <K extends keyof AlarmPlanRow>(
+    factor: AlarmFactorKey,
+    field: K,
+    value: AlarmPlanRow[K],
+  ) =>
+    setPlan((current) => ({
+      ...current,
+      [factor]: {
+        ...(current[factor] ?? emptyPlanRow(factor)),
+        [field]: value,
+      },
+    }));
 
   const toggleCheck = (key: AlarmFactorKey, item: string) =>
     setChecks((current) => {
@@ -96,13 +150,22 @@ function DrawerPanel({
       };
     });
 
-  const filledCount = ALARM_FACTORS.filter(
+  // Familles retenues à l'étape 2 : elles alimentent le plan d'action.
+  const activeFactors = ALARM_FACTORS.filter(
     (factor) =>
       (draft[factor.key] ?? "").trim() || (checks[factor.key] ?? []).length > 0,
-  ).length;
+  );
 
   const save = () => {
-    updateAlarm(incident.id, draft, checks, avoidable);
+    const alarmPlan = activeFactors
+      .map((factor) => plan[factor.key] ?? emptyPlanRow(factor.key))
+      .filter(planRowHasContent);
+    updateAlarm(incident.id, {
+      alarm: draft,
+      alarmChecks: checks,
+      avoidable,
+      alarmPlan,
+    });
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);
   };
@@ -160,7 +223,19 @@ function DrawerPanel({
 
         <dl className="mt-5 grid gap-x-6 gap-y-3 rounded-2xl border border-line bg-muted p-5 text-sm sm:grid-cols-2">
           <Row label="Établissement" value={hospital?.name ?? "—"} />
-          <Row label="Déclaré par" value={incident.declaredBy} />
+          <Row
+            label="Déclaré par"
+            value={
+              incident.declaredByRole
+                ? `${incident.declaredBy} · ${incident.declaredByRole}`
+                : incident.declaredBy
+            }
+          />
+          <Row
+            label="Lieu de survenue"
+            value={incident.location || "Non précisé"}
+          />
+          <Row label="Victime" value={VICTIM_LABELS[incident.victim]} />
           <Row label="Survenu le" value={formatDateTime(incident.occurredAt)} />
           <Row label="Déclaré le" value={formatDateTime(incident.declaredAt)} />
           {incident.attachmentName ? (
@@ -177,6 +252,81 @@ function DrawerPanel({
           </p>
         </section>
 
+        {/* Classement de la cellule qualité : ce que la direction reçoit */}
+        <section className="mt-6">
+          <h3 className="font-display text-sm font-extrabold text-fg uppercase">
+            Classement
+          </h3>
+          {incident.classification ? (
+            <div className="mt-2 rounded-2xl border border-line bg-muted p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-display rounded-xl bg-hospital px-2.5 py-1 text-xs font-extrabold text-white">
+                  {DECISION_CODES[incident.classification.decision]}
+                </span>
+                <span className="text-sm font-bold text-fg">
+                  {DECISION_LABELS[incident.classification.decision]}
+                </span>
+              </div>
+              <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Row
+                  label="Nature"
+                  value={EVENT_NATURE_LABELS[incident.classification.nature]}
+                />
+                <Row
+                  label="Étape du parcours"
+                  value={CARE_STAGE_LABELS[incident.classification.stage]}
+                />
+                <Row
+                  label="Criticité"
+                  value={
+                    CRITICALITY_LABELS[incident.classification.criticality]
+                  }
+                />
+                <Row
+                  label="Familles retenues"
+                  value={incident.classification.families
+                    .map(
+                      (key) =>
+                        ALARM_FACTORS.find((factor) => factor.key === key)
+                          ?.label ?? key,
+                    )
+                    .join(" · ")}
+                />
+                <Row
+                  label="Classé par"
+                  value={incident.classification.classifiedBy}
+                />
+                <Row
+                  label="Classé le"
+                  value={formatDateTime(incident.classification.classifiedAt)}
+                />
+                {incident.relatedReferences?.length ? (
+                  <Row
+                    label="Événements liés"
+                    value={incident.relatedReferences.join(", ")}
+                  />
+                ) : null}
+              </dl>
+              {incident.classification.comment ? (
+                <div className="mt-4 rounded-xl bg-surface px-4 py-3">
+                  <p className="text-xs font-semibold text-fg-muted">
+                    Commentaire
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-fg">
+                    {incident.classification.comment}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-2 rounded-2xl border border-dashed border-line px-5 py-6 text-sm text-fg-muted">
+              Fiche pas encore classée. La cellule qualité en arrête la nature,
+              la criticité et la décision, puis en transmet le rapport à la
+              direction.
+            </p>
+          )}
+        </section>
+
         <section className="mt-8">
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -188,7 +338,7 @@ function DrawerPanel({
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-hospital/10 px-3 py-1 text-xs font-bold text-hospital">
-              {filledCount}/7
+              {activeFactors.length}/7
             </span>
           </div>
 
@@ -295,6 +445,131 @@ function DrawerPanel({
               ))}
             </div>
           </div>
+
+          {/* Étape 3 de la grille : du facteur contributif à l'action */}
+          <div className="mt-8">
+            <h4 className="font-display text-base font-extrabold text-fg">
+              Plan d&apos;action
+            </h4>
+            <p className="mt-1 text-sm text-fg-muted">
+              Une ligne par famille retenue ci-dessus, comme à l&apos;étape 3 de
+              la grille de l&apos;établissement.
+            </p>
+
+            {activeFactors.length === 0 ? (
+              <p className="mt-3 rounded-2xl border border-dashed border-line px-5 py-6 text-sm text-fg-muted">
+                Renseignez d&apos;abord au moins une famille de facteurs : le
+                plan d&apos;action en découle.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto rounded-2xl border border-line">
+                <table className="w-full min-w-5xl text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-line bg-muted text-xs font-bold text-fg-muted uppercase">
+                      <th className="px-4 py-3">Facteurs contributifs</th>
+                      <th className="px-4 py-3">Causes</th>
+                      <th className="px-4 py-3">Actions d&apos;amélioration</th>
+                      <th className="px-4 py-3">Priorité</th>
+                      <th className="px-4 py-3">Pilote</th>
+                      <th className="px-4 py-3">Échéance</th>
+                      <th className="px-4 py-3">Indicateurs</th>
+                      <th className="px-4 py-3">Observations</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {activeFactors.map((factor) => {
+                      const row = plan[factor.key] ?? emptyPlanRow(factor.key);
+                      const selected = checks[factor.key] ?? [];
+                      return (
+                        <tr key={factor.key} className="align-top">
+                          <td className="px-4 py-3">
+                            <p className="text-sm font-bold text-fg">
+                              {factor.label}
+                            </p>
+                            {selected.length > 0 ? (
+                              <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+                                {selected.join(" · ")}
+                              </p>
+                            ) : null}
+                          </td>
+                          <PlanCell
+                            label={`Causes — ${factor.label}`}
+                            value={row.cause}
+                            onChange={(value) =>
+                              setPlanField(factor.key, "cause", value)
+                            }
+                          />
+                          <PlanCell
+                            label={`Actions — ${factor.label}`}
+                            value={row.action}
+                            onChange={(value) =>
+                              setPlanField(factor.key, "action", value)
+                            }
+                          />
+                          <td className="px-4 py-3">
+                            <select
+                              aria-label={`Priorité — ${factor.label}`}
+                              value={row.priority}
+                              onChange={(event) =>
+                                setPlanField(
+                                  factor.key,
+                                  "priority",
+                                  event.target.value as Severity,
+                                )
+                              }
+                              className="h-10 w-full min-w-28 rounded-xl border border-line bg-surface px-2 text-xs font-semibold text-fg outline-none focus:border-hospital"
+                            >
+                              {SEVERITY_ORDER.map((level) => (
+                                <option key={level} value={level}>
+                                  {SEVERITY_LABELS[level]}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <PlanCell
+                            label={`Pilote — ${factor.label}`}
+                            value={row.owner}
+                            onChange={(value) =>
+                              setPlanField(factor.key, "owner", value)
+                            }
+                          />
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              aria-label={`Échéance — ${factor.label}`}
+                              value={row.dueDate}
+                              onChange={(event) =>
+                                setPlanField(
+                                  factor.key,
+                                  "dueDate",
+                                  event.target.value,
+                                )
+                              }
+                              className="h-10 w-full min-w-36 rounded-xl border border-line bg-surface px-2 text-xs text-fg outline-none focus:border-hospital"
+                            />
+                          </td>
+                          <PlanCell
+                            label={`Indicateurs — ${factor.label}`}
+                            value={row.indicators}
+                            onChange={(value) =>
+                              setPlanField(factor.key, "indicators", value)
+                            }
+                          />
+                          <PlanCell
+                            label={`Observations — ${factor.label}`}
+                            value={row.notes}
+                            onChange={(value) =>
+                              setPlanField(factor.key, "notes", value)
+                            }
+                          />
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </section>
       </div>
 
@@ -303,11 +578,6 @@ function DrawerPanel({
           <Save className="size-4" />
           Enregistrer l&apos;analyse
         </Button>
-        <Button variant="outline" size="md">
-          <FileDown className="size-4" />
-          Exporter la fiche
-        </Button>
-
         <AnimatePresence>
           {saved ? (
             <motion.span
@@ -322,6 +592,29 @@ function DrawerPanel({
         </AnimatePresence>
       </div>
     </motion.aside>
+  );
+}
+
+/** Cellule de saisie libre du plan d'action. */
+function PlanCell({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <td className="px-4 py-3">
+      <textarea
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={2}
+        className="w-full min-w-40 resize-y rounded-xl border border-line bg-surface px-3 py-2 text-xs text-fg outline-none focus:border-hospital"
+      />
+    </td>
   );
 }
 

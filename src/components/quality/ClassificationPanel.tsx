@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Siren, X } from "lucide-react";
+import { Check, Link2, Siren, X } from "lucide-react";
 import { Badge, SEVERITY_TONE } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
@@ -75,8 +75,17 @@ function PanelBody({
   incident: Incident;
   onClose: () => void;
 }) {
-  const { classifyIncident, callUrgentMeeting, profile } = useAppState();
+  const { classifyIncident, callUrgentMeeting, incidents, profile } =
+    useAppState();
   const existing = incident.classification;
+
+  /**
+   * Autres fiches susceptibles de porter sur le même événement : même service,
+   * fiche courante exclue. C'est la colonne « N° EVT Groupe » du relevé.
+   */
+  const siblings = incidents.filter(
+    (item) => item.id !== incident.id && item.service === incident.service,
+  );
 
   const [nature, setNature] = useState<EventNature>(
     existing?.nature ?? "evenement",
@@ -94,12 +103,22 @@ function PanelBody({
     existing?.decision ?? "action",
   );
   const [comment, setComment] = useState(existing?.comment ?? "");
+  const [related, setRelated] = useState<string[]>(
+    incident.relatedReferences ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Rassemblement immédiat, proposé sur les cas qui l'exigent.
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingAt, setMeetingAt] = useState("");
   const [called, setCalled] = useState(false);
+
+  const toggleRelated = (reference: string) =>
+    setRelated((current) =>
+      current.includes(reference)
+        ? current.filter((item) => item !== reference)
+        : [...current, reference],
+    );
 
   const toggleFamily = (key: AlarmFactorKey) =>
     setFamilies((current) =>
@@ -118,17 +137,22 @@ function PanelBody({
       return;
     }
     setError(null);
-    classifyIncident(incident.id, {
-      nature,
-      families,
-      stage,
-      criticality,
-      decision,
-      comment: comment.trim() || undefined,
-      classifiedBy:
-        `${profile.firstName} ${profile.lastName}`.trim() || "Cellule qualité",
-      classifiedAt: new Date().toISOString(),
-    });
+    classifyIncident(
+      incident.id,
+      {
+        nature,
+        families,
+        stage,
+        criticality,
+        decision,
+        comment: comment.trim() || undefined,
+        classifiedBy:
+          `${profile.firstName} ${profile.lastName}`.trim() ||
+          "Cellule qualité",
+        classifiedAt: new Date().toISOString(),
+      },
+      related,
+    );
     onClose();
   };
 
@@ -361,6 +385,47 @@ function PanelBody({
             className="min-h-24"
           />
 
+          {/* Événements liés — colonne « N° EVT Groupe » du relevé */}
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-sm font-bold text-fg">
+              <Link2 className="size-4 text-hospital" />
+              Événements liés
+              <span className="font-normal text-fg-muted">facultatif</span>
+            </p>
+            {siblings.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-line px-4 py-3 text-xs text-fg-muted">
+                Aucune autre fiche déclarée dans ce service pour l&apos;instant.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {siblings.map((item) => {
+                  const selected = related.includes(item.reference);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleRelated(item.reference)}
+                      aria-pressed={selected}
+                      title={item.description}
+                      className={cn(
+                        "font-display min-h-9 rounded-full border px-3.5 text-xs font-extrabold transition-colors",
+                        selected
+                          ? "border-transparent bg-hospital text-white"
+                          : "border-line bg-surface text-fg-muted hover:border-hospital/40",
+                      )}
+                    >
+                      {item.reference}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="mt-2 text-xs text-fg-muted">
+              Regroupe les fiches portant sur le même événement, comme le fait
+              la colonne « N° EVT Groupe » du relevé.
+            </p>
+          </div>
+
           {/* Rassemblement immédiat */}
           <div className="rounded-2xl border border-alert/30 bg-alert/5 p-5">
             <p className="flex items-center gap-2 text-sm font-bold text-alert">
@@ -416,13 +481,21 @@ function PanelBody({
       </div>
 
       <div className="flex items-center gap-3 border-t border-line px-6 py-4">
-        <Button variant="ink" size="md" onClick={save}>
-          <Check className="size-4" />
-          Enregistrer le classement
-        </Button>
-        <Button variant="ghost" size="md" onClick={onClose}>
-          Annuler
-        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <Button variant="ink" size="md" onClick={save}>
+              <Check className="size-4" />
+              Enregistrer le classement
+            </Button>
+            <Button variant="ghost" size="md" onClick={onClose}>
+              Annuler
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
+            L&apos;enregistrement transmet un rapport à la direction et inscrit
+            la fiche au relevé du prochain CREX.
+          </p>
+        </div>
       </div>
     </motion.aside>
   );

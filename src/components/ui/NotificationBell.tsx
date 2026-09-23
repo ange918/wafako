@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Siren } from "lucide-react";
+import { Bell, FileText, Siren } from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { backdrop } from "@/lib/motion";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -11,7 +11,8 @@ import { cn, formatDateTime } from "@/lib/utils";
  * Cloche de notifications, présente dans les trois espaces.
  *
  * Un rassemblement convoqué par la cellule qualité notifie tous les
- * utilisateurs, quel que soit leur poste.
+ * utilisateurs, quel que soit leur poste. Les rapports de classement, eux,
+ * sont adressés à la direction et portent la mention correspondante.
  */
 export function NotificationBell({ className }: { className?: string }) {
   const { notifications, unreadCount, markNotificationsRead } = useAppState();
@@ -95,6 +96,8 @@ export function NotificationBell({ className }: { className?: string }) {
                       >
                         {item.urgent ? (
                           <Siren className="size-4.5" />
+                        ) : item.audience === "direction" ? (
+                          <FileText className="size-4.5" />
                         ) : (
                           <Bell className="size-4.5" />
                         )}
@@ -103,6 +106,11 @@ export function NotificationBell({ className }: { className?: string }) {
                         <p className="text-sm font-bold text-fg">
                           {item.title}
                         </p>
+                        {item.audience === "direction" ? (
+                          <span className="mt-1 inline-block rounded-full bg-ink px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-on-ink uppercase">
+                            Direction
+                          </span>
+                        ) : null}
                         <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
                           {item.body}
                         </p>
