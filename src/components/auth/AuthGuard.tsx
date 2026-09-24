@@ -7,19 +7,24 @@ import { ShieldPlus } from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { AdminPasswordGate } from "./AdminPasswordGate";
 
-type Space = "agent" | "admin" | "quality";
+type Space = "agent" | "admin" | "quality" | "docteur";
 
 const LOGIN_PATH: Record<Space, string> = {
   agent: "/login",
   admin: "/admin/login",
   quality: "/qualite",
+  docteur: "/docteur/connexion",
 };
 
 const HOME_PATH: Record<Space, string> = {
   agent: "/dashboard",
   admin: "/admin/dashboard",
   quality: "/qualite",
+  docteur: "/docteur",
 };
+
+/** Espaces qui renvoient vers un formulaire de connexion plutôt qu'un mot de passe. */
+const REDIRECTS: Space[] = ["agent", "docteur"];
 
 /** Écran d'attente pendant la lecture de la session ou une redirection. */
 function Splash({ label }: { label: string }) {
@@ -59,28 +64,33 @@ export function RequireAuth({
     isAuthenticated,
     isAdminAuthenticated,
     isQualityAuthenticated,
+    currentDoctorId,
   } = useAppState();
   const allowed =
     space === "admin"
       ? isAdminAuthenticated
       : space === "quality"
         ? isQualityAuthenticated
-        : isAuthenticated;
+        : space === "docteur"
+          ? currentDoctorId !== null
+          : isAuthenticated;
 
   // Les espaces protégés par mot de passe ne redirigent pas : le lien du tableau de bord doit
   // fonctionner directement, le mot de passe étant demandé sur cette URL.
   useEffect(() => {
-    if (space !== "agent") return;
+    if (!REDIRECTS.includes(space)) return;
     if (hydrated && !allowed) router.replace(LOGIN_PATH[space]);
   }, [hydrated, allowed, router, space]);
 
   if (!hydrated) return <Splash label="Vérification de votre session…" />;
 
   if (!allowed) {
-    if (space === "agent") {
+    if (REDIRECTS.includes(space)) {
       return <Splash label="Connexion requise — redirection…" />;
     }
-    return <AdminPasswordGate space={space} />;
+    return (
+      <AdminPasswordGate space={space === "quality" ? "quality" : "admin"} />
+    );
   }
 
   return <>{children}</>;
@@ -98,8 +108,14 @@ export function RedirectIfAuthenticated({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { hydrated, isAuthenticated, isAdminAuthenticated } = useAppState();
-  const signedIn = space === "admin" ? isAdminAuthenticated : isAuthenticated;
+  const { hydrated, isAuthenticated, isAdminAuthenticated, currentDoctorId } =
+    useAppState();
+  const signedIn =
+    space === "admin"
+      ? isAdminAuthenticated
+      : space === "docteur"
+        ? currentDoctorId !== null
+        : isAuthenticated;
 
   useEffect(() => {
     if (hydrated && signedIn) router.replace(HOME_PATH[space]);

@@ -27,11 +27,16 @@ import type {
   CrexMeeting,
   DeclarationDraft,
   Incident,
+  Person,
   UserProfile,
 } from "@/types";
 
 interface PersistedState {
   profile: UserProfile;
+  /** Annuaire de l'établissement : personnel et docteurs inscrits. */
+  people: Person[];
+  /** Docteur connecté sur cet appareil, par identifiant d'annuaire. */
+  currentDoctorId: string | null;
   incidents: Incident[];
   actions: ActionItem[];
   crexMeetings: CrexMeeting[];
@@ -63,6 +68,8 @@ interface PersistedState {
  */
 const SERVER_STATE: PersistedState = {
   profile: EMPTY_PROFILE,
+  people: [],
+  currentDoctorId: null,
   incidents: [],
   actions: [],
   crexMeetings: [],
@@ -80,6 +87,8 @@ const stateStore = createLazyStore<PersistedState>({
   // Exécuté au premier abonnement, donc après hydratation.
   load: () => ({
     profile: readJson(STORAGE_KEYS.profile, EMPTY_PROFILE),
+    people: readJson<Person[]>(STORAGE_KEYS.people, []),
+    currentDoctorId: readJson<string | null>(STORAGE_KEYS.doctorSession, null),
     incidents: readJson<Incident[]>(STORAGE_KEYS.incidents, []),
     actions: readJson<ActionItem[]>(STORAGE_KEYS.actions, []),
     crexMeetings: readJson<CrexMeeting[]>(STORAGE_KEYS.crex, []),
@@ -97,6 +106,10 @@ const stateStore = createLazyStore<PersistedState>({
 function patchState(patch: Partial<PersistedState>) {
   const next = { ...stateStore.get(), ...patch };
   if (patch.profile) writeJson(STORAGE_KEYS.profile, next.profile);
+  if (patch.people) writeJson(STORAGE_KEYS.people, next.people);
+  if (patch.currentDoctorId !== undefined) {
+    writeJson(STORAGE_KEYS.doctorSession, next.currentDoctorId);
+  }
   if (patch.incidents) writeJson(STORAGE_KEYS.incidents, next.incidents);
   if (patch.actions) writeJson(STORAGE_KEYS.actions, next.actions);
   if (patch.crexMeetings) writeJson(STORAGE_KEYS.crex, next.crexMeetings);
@@ -162,6 +175,19 @@ interface AppStateValue extends PersistedState {
   unreadCount: number;
   /** Fiches reçues et pas encore classées par la cellule qualité. */
   pendingClassification: number;
+  /** Docteur connecté sur cet appareil, s'il y en a un. */
+  currentDoctor: Person | null;
+  /** Docteurs inscrits, triés par spécialité puis par nom. */
+  doctors: Person[];
+  /** Personnel soignant inscrit. */
+  staff: Person[];
+  registerPerson: (person: Omit<Person, "id" | "registeredAt">) => Person;
+  signInDoctor: (personId: string) => void;
+  signOutDoctor: () => void;
+  /** Attribue une action corrective à un ou plusieurs employés. */
+  assignAction: (
+    action: Omit<ActionItem, "id" | "status"> & { status?: ActionStatus },
+  ) => ActionItem;
   updateActionStatus: (id: string, status: ActionStatus) => void;
   updateAlarm: (incidentId: string, analysis: AlarmAnalysis) => void;
   scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => void;
@@ -185,6 +211,35 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   const isOnline = networkOnline && !state.forcedOffline;
+
+  /**
+   * Inscription à l'annuaire.
+   *
+   * Sans serveur, l'annuaire vit dans ce navigateur : il ne rassemble que les
+   * comptes créés sur cet appareil.
+   */
+  const registerPerson = useCallback(
+    (person: Omit<Person, "id" | "registeredAt">) => {
+      const created: Person = {
+        ...person,
+        id: uid("per"),
+        registeredAt: new Date().toISOString(),
+      };
+      patchState({ people: [...stateStore.get().people, created] });
+      return created;
+    },
+    [],
+  );
+
+  const signInDoctor = useCallback(
+    (personId: string) => patchState({ currentDoctorId: personId }),
+    [],
+  );
+
+  const signOutDoctor = useCallback(
+    () => patchState({ currentDoctorId: null }),
+    [],
+  );
 
   const setProfile = useCallback(
     (profile: UserProfile) => patchState({ profile }),
@@ -214,6 +269,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: false,
         isAdminAuthenticated: false,
         isQualityAuthenticated: false,
+        currentDoctorId: null,
       }),
     [],
   );
@@ -315,6 +371,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         urgent: false,
         audience: "direction",
       });
+      // Les docteurs désignés reçoivent la fiche dans leur tableau de bord.
+      if (classification.assignedTo.length > 0) {
+        const names = stateStore
+          .get()
+          .people.filter((person) =>
+            classification.assignedTo.includes(person.id),
+          )
+          .map((person) => `Dr ${person.lastName}`)
+          .join(", ");
+        notify({
+          title: `Déclaration transmise — ${target.reference}`,
+          body: `${names || "Docteur"} · ${target.service}. Fiche à prendre en charge.`,
+          urgent: false,
+          audience: "docteur",
+          targetIds: classification.assignedTo,
+        });
+      }
     },
     [notify],
   );
@@ -345,6 +418,30 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         body: `${created.title} — ${created.service}. Votre présence est attendue.`,
         urgent: true,
         meetingId: created.id,
+      });
+      return created;
+    },
+    [notify],
+  );
+
+  /**
+   * Attribution d'une action corrective par l'administration. L'action
+   * apparaît aussitôt dans l'onglet « Mes actions » des employés désignés.
+   */
+  const assignAction = useCallback(
+    (action: Omit<ActionItem, "id" | "status"> & { status?: ActionStatus }) => {
+      const created: ActionItem = {
+        ...action,
+        id: uid("act"),
+        status: action.status ?? "a_faire",
+      };
+      patchState({ actions: [created, ...stateStore.get().actions] });
+      notify({
+        title: "Nouvelle action attribuée",
+        body: `${created.title} — échéance ${new Date(created.dueDate).toLocaleDateString("fr-FR")}.`,
+        urgent: false,
+        audience: "employe",
+        targetIds: created.assigneeIds ?? [],
       });
       return created;
     },
@@ -435,6 +532,37 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     [state.incidents],
   );
 
+  const doctors = useMemo(
+    () =>
+      state.people
+        .filter((person) => person.kind === "docteur")
+        .sort(
+          (a, b) =>
+            (a.specialty ?? "").localeCompare(b.specialty ?? "") ||
+            a.lastName.localeCompare(b.lastName),
+        ),
+    [state.people],
+  );
+
+  const staff = useMemo(
+    () =>
+      state.people
+        .filter((person) => person.kind === "soignant")
+        .sort(
+          (a, b) =>
+            (a.service ?? "").localeCompare(b.service ?? "") ||
+            a.lastName.localeCompare(b.lastName),
+        ),
+    [state.people],
+  );
+
+  const currentDoctor = useMemo(
+    () =>
+      state.people.find((person) => person.id === state.currentDoctorId) ??
+      null,
+    [state.people, state.currentDoctorId],
+  );
+
   const pendingCount = useMemo(
     () =>
       state.incidents.filter((incident) => incident.sync === "en_attente")
@@ -478,6 +606,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     signInQuality,
     unreadCount,
     pendingClassification,
+    currentDoctor,
+    doctors,
+    staff,
+    registerPerson,
+    signInDoctor,
+    signOutDoctor,
+    assignAction,
     updateActionStatus,
     updateAlarm,
     scheduleCrex,

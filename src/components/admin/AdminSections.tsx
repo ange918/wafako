@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Mail,
   ShieldCheck,
+  Stethoscope,
   Users,
 } from "lucide-react";
 import {
@@ -16,6 +17,7 @@ import {
   SEVERITY_TONE,
 } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { AssignActionForm } from "./AssignActionForm";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import {
   ACTION_STATUS_LABELS,
@@ -34,9 +36,29 @@ import {
 } from "@/lib/crex";
 import { fadeUp, stagger } from "@/lib/motion";
 import { formatDate, initials } from "@/lib/utils";
+import type { ActionItem } from "@/types";
 
 export function ActionsSection() {
   const { actions } = useAppState();
+
+  return (
+    <div className="space-y-6">
+      <AssignActionForm />
+      <ActionsTable actions={actions} />
+    </div>
+  );
+}
+
+function ActionsTable({ actions }: { actions: ActionItem[] }) {
+  const { people } = useAppState();
+
+  /** Noms des destinataires, à partir des identifiants d'annuaire. */
+  const assigneesOf = (action: ActionItem) =>
+    (action.assigneeIds ?? [])
+      .map((id) => people.find((person) => person.id === id))
+      .filter((person) => person !== undefined)
+      .map((person) => `${person.firstName} ${person.lastName}`)
+      .join(", ");
 
   return (
     <Card>
@@ -63,7 +85,7 @@ export function ActionsSection() {
                 <th className="px-6 py-3">Code EVT</th>
                 <th className="px-6 py-3">Résumé</th>
                 <th className="px-6 py-3">Description de l&apos;action</th>
-                <th className="px-6 py-3">Pilote</th>
+                <th className="px-6 py-3">Destinataires</th>
                 <th className="px-6 py-3">Priorité</th>
                 <th className="px-6 py-3">Date de décision</th>
                 <th className="px-6 py-3">Échéance</th>
@@ -87,7 +109,9 @@ export function ActionsSection() {
                   <td className="max-w-sm px-6 py-4 text-fg-muted">
                     {action.title}
                   </td>
-                  <td className="px-6 py-4 text-fg-muted">{action.owner}</td>
+                  <td className="px-6 py-4 text-fg-muted">
+                    {assigneesOf(action) || action.owner}
+                  </td>
                   <td className="px-6 py-4">
                     <Badge tone={SEVERITY_TONE[action.priority]}>
                       {SEVERITY_LABELS[action.priority]}
@@ -214,23 +238,26 @@ export function AlarmSection() {
 /**
  * Utilisateurs.
  *
- * Sans backend, le seul compte connu est celui créé sur cet appareil. Aucune
- * liste d'utilisateurs n'est inventée.
+ * L'annuaire rassemble les comptes créés sur cet appareil : le personnel
+ * soignant et les docteurs, avec leur domaine. Aucun compte n'est inventé.
  */
 export function UsersSection() {
-  const { profile, hasAccount, incidents } = useAppState();
-  const hospital = HOSPITALS.find((item) => item.id === profile.hospitalId);
+  const { staff, doctors, incidents, actions } = useAppState();
+  const people = [...staff, ...doctors];
 
-  if (!hasAccount) {
+  if (people.length === 0) {
     return (
       <Card>
-        <CardHeader title="Utilisateurs" subtitle="Comptes déclarants" />
+        <CardHeader
+          title="Utilisateurs"
+          subtitle="Annuaire de l'établissement"
+        />
         <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
           <span className="grid size-12 place-items-center rounded-2xl bg-muted text-fg-muted">
             <Users className="size-6" />
           </span>
           <p className="max-w-sm text-sm text-fg-muted">
-            Aucun compte n&apos;a encore été créé. Les comptes soignants
+            Aucun compte n&apos;a encore été créé. Les soignants et les docteurs
             apparaîtront ici après leur inscription.
           </p>
         </div>
@@ -238,38 +265,109 @@ export function UsersSection() {
     );
   }
 
-  const declared = incidents.filter(
-    (incident) =>
-      incident.declaredBy ===
-      `${profile.firstName.charAt(0)}. ${profile.lastName}`,
-  ).length;
-
   return (
-    <Card>
-      <CardHeader title="Utilisateurs" subtitle="1 compte sur cet appareil" />
-      <ul className="divide-y divide-line">
-        <li className="flex items-center gap-4 px-6 py-4">
-          <span className="font-display grid size-10 shrink-0 place-items-center rounded-2xl bg-hospital/12 text-sm font-extrabold text-hospital">
-            {initials(profile.firstName, profile.lastName)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-fg">
-              {profile.firstName} {profile.lastName}
-            </p>
-            <p className="truncate text-xs text-fg-muted">
-              {profile.role} · {profile.service} · {hospital?.name ?? "—"}
-            </p>
-          </div>
-          <Badge tone="info">
-            {declared} déclaration{declared > 1 ? "s" : ""}
-          </Badge>
-        </li>
-      </ul>
-      <p className="border-t border-line px-6 py-4 text-xs leading-relaxed text-fg-muted">
-        Les comptes sont stockés dans le navigateur de chaque soignant. Une
-        consolidation multi-utilisateurs demanderait un serveur.
+    <div className="grid gap-6 xl:grid-cols-2">
+      <Card>
+        <CardHeader
+          title="Personnel soignant"
+          subtitle={`${staff.length} compte${staff.length > 1 ? "s" : ""}`}
+        />
+        {staff.length === 0 ? (
+          <p className="px-6 py-12 text-center text-sm text-fg-muted">
+            Aucun compte soignant sur cet appareil.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {staff.map((person) => {
+              const hospital = HOSPITALS.find(
+                (item) => item.id === person.hospitalId,
+              );
+              const declared = incidents.filter(
+                (incident) =>
+                  incident.declaredBy ===
+                  `${person.firstName.charAt(0)}. ${person.lastName}`,
+              ).length;
+              const assigned = actions.filter((action) =>
+                (action.assigneeIds ?? []).includes(person.id),
+              ).length;
+              return (
+                <li
+                  key={person.id}
+                  className="flex items-center gap-4 px-6 py-4"
+                >
+                  <span className="font-display grid size-10 shrink-0 place-items-center rounded-2xl bg-hospital/12 text-sm font-extrabold text-hospital">
+                    {initials(person.firstName, person.lastName)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-fg">
+                      {person.firstName} {person.lastName}
+                    </p>
+                    <p className="truncate text-xs text-fg-muted">
+                      {person.role} · {person.service} · {hospital?.name ?? "—"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge tone="info">
+                      {declared} déclaration{declared > 1 ? "s" : ""}
+                    </Badge>
+                    <span className="text-[11px] text-fg-muted">
+                      {assigned} action{assigned > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Docteurs"
+          subtitle={`${doctors.length} compte${doctors.length > 1 ? "s" : ""}, par spécialité`}
+        />
+        {doctors.length === 0 ? (
+          <p className="px-6 py-12 text-center text-sm text-fg-muted">
+            Aucun docteur inscrit. Les fiches classées ne peuvent être
+            transmises à personne.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {doctors.map((person) => {
+              const received = incidents.filter((incident) =>
+                (incident.classification?.assignedTo ?? []).includes(person.id),
+              ).length;
+              return (
+                <li
+                  key={person.id}
+                  className="flex items-center gap-4 px-6 py-4"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-success/12 text-success">
+                    <Stethoscope className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-fg">
+                      Dr {person.firstName} {person.lastName}
+                    </p>
+                    <p className="truncate text-xs text-fg-muted">
+                      {person.specialty} · {person.email}
+                    </p>
+                  </div>
+                  <Badge tone="info">
+                    {received} fiche{received > 1 ? "s" : ""}
+                  </Badge>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      <p className="text-xs leading-relaxed text-fg-muted xl:col-span-2">
+        Les comptes sont stockés dans le navigateur où ils ont été créés. Une
+        consolidation entre postes demanderait un serveur.
       </p>
-    </Card>
+    </div>
   );
 }
 
