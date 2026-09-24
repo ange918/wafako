@@ -41,6 +41,36 @@ export interface Category {
 /** Qui a subi l'événement. */
 export type VictimKind = "professionnel" | "usager" | "patient" | "aucune";
 
+/* ------------------------------------------------------------------ */
+/* Annuaire de l'établissement                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nature d'un compte de l'annuaire.
+ *
+ * « soignant » couvre tout le personnel qui déclare ; « docteur » désigne les
+ * médecins à qui la cellule qualité transmet une déclaration selon la
+ * spécialité concernée.
+ */
+export type PersonKind = "soignant" | "docteur";
+
+export interface Person {
+  id: string;
+  kind: PersonKind;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  hospitalId: string;
+  /** Service de rattachement, pour un membre du personnel. */
+  service?: string;
+  /** Intitulé du poste, pour un membre du personnel. */
+  role?: string;
+  /** Spécialité médicale, pour un docteur. */
+  specialty?: string;
+  registeredAt: string;
+}
+
 export interface Hospital {
   id: string;
   name: string;
@@ -82,6 +112,12 @@ export interface Classification {
   decision: TriageDecision;
   /** Justification, attendue notamment pour une décision « sans suivi ». */
   comment?: string;
+  /**
+   * Docteurs à qui la fiche est transmise, choisis selon la spécialité
+   * concernée. Plusieurs destinataires sont possibles quand l'événement
+   * touche deux domaines.
+   */
+  assignedTo: string[];
   classifiedBy: string;
   classifiedAt: string;
 }
@@ -133,6 +169,10 @@ export interface ActionItem {
   title: string;
   /** Intitulé court, colonne « Résumé » du tableau de suivi. */
   summary?: string;
+  /** Employés à qui l'action est attribuée, par identifiant d'annuaire. */
+  assigneeIds?: string[];
+  /** Qui a attribué l'action. */
+  assignedBy?: string;
   incidentReference: string;
   service: string;
   owner: string;
@@ -178,8 +218,14 @@ export interface AppNotification {
   createdAt: string;
   /** Un rassemblement urgent touche tous les utilisateurs, quel que soit leur poste. */
   urgent: boolean;
-  /** « direction » pour le rapport transmis au chef d'établissement après classement. */
-  audience?: "tous" | "direction";
+  /**
+   * Destinataire visé : « tous » pour un rassemblement, « direction » pour le
+   * rapport de classement, « docteur » pour une fiche transmise, « employe »
+   * pour une action attribuée.
+   */
+  audience?: "tous" | "direction" | "docteur" | "employe";
+  /** Identifiants d'annuaire visés, quand la notification ne concerne pas tout le monde. */
+  targetIds?: string[];
   meetingId?: string;
   read: boolean;
 }
@@ -222,6 +268,8 @@ export interface AlarmFactor {
 }
 
 export interface UserProfile {
+  /** Identifiant dans l'annuaire, créé à l'inscription. */
+  personId?: string;
   firstName: string;
   lastName: string;
   phone: string;

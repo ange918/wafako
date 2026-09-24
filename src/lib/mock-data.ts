@@ -52,6 +52,30 @@ export const ROLES = [
   "Cadre de santé",
 ] as const;
 
+/**
+ * Spécialités médicales proposées à l'inscription d'un docteur.
+ *
+ * La liste reprend les domaines que l'on retrouve dans les documents de
+ * l'établissement, dialyse et radiothérapie comprises.
+ */
+export const SPECIALTIES = [
+  "Chirurgie",
+  "Pédiatrie",
+  "Gynécologie-obstétrique",
+  "Médecine interne",
+  "Anesthésie-réanimation",
+  "Cardiologie",
+  "Néphrologie et dialyse",
+  "Oncologie et radiothérapie",
+  "Imagerie médicale",
+  "Biologie médicale",
+  "Médecine d'urgence",
+  "Psychiatrie",
+  "Ophtalmologie",
+  "Oto-rhino-laryngologie",
+  "Dermatologie",
+] as const;
+
 export const CATEGORIES: Category[] = [
   {
     id: "medicament",

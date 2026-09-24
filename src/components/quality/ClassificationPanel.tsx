@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
 import { Check, Link2, Siren, X } from "lucide-react";
 import { Badge, SEVERITY_TONE } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
+import { DoctorPicker } from "./DoctorPicker";
 import { CATEGORY_ICONS } from "@/components/dashboard/categoryIcons";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import {
@@ -75,7 +77,7 @@ function PanelBody({
   incident: Incident;
   onClose: () => void;
 }) {
-  const { classifyIncident, callUrgentMeeting, incidents, profile } =
+  const { classifyIncident, callUrgentMeeting, doctors, incidents, profile } =
     useAppState();
   const existing = incident.classification;
 
@@ -106,12 +108,23 @@ function PanelBody({
   const [related, setRelated] = useState<string[]>(
     incident.relatedReferences ?? [],
   );
+  // Docteurs destinataires : une fiche peut relever de deux domaines.
+  const [assignedTo, setAssignedTo] = useState<string[]>(
+    existing?.assignedTo ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Rassemblement immédiat, proposé sur les cas qui l'exigent.
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingAt, setMeetingAt] = useState("");
   const [called, setCalled] = useState(false);
+
+  const toggleAssignee = (id: string) =>
+    setAssignedTo((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
 
   const toggleRelated = (reference: string) =>
     setRelated((current) =>
@@ -136,6 +149,15 @@ function PanelBody({
       setError("Une décision « sans suivi » doit être justifiée.");
       return;
     }
+    // Une action ou une analyse doit être confiée à quelqu'un.
+    if (
+      decision !== "sans_suivi" &&
+      doctors.length > 0 &&
+      assignedTo.length === 0
+    ) {
+      setError("Désignez le ou les docteurs à qui la fiche est transmise.");
+      return;
+    }
     setError(null);
     classifyIncident(
       incident.id,
@@ -146,6 +168,7 @@ function PanelBody({
         criticality,
         decision,
         comment: comment.trim() || undefined,
+        assignedTo,
         classifiedBy:
           `${profile.firstName} ${profile.lastName}`.trim() ||
           "Cellule qualité",
@@ -385,6 +408,32 @@ function PanelBody({
             className="min-h-24"
           />
 
+          {/* Transmission au médecin du domaine concerné */}
+          <div>
+            <DoctorPicker
+              doctors={doctors}
+              selected={assignedTo}
+              onToggle={toggleAssignee}
+            />
+            {doctors.length === 0 ? (
+              <p className="mt-2 text-xs leading-relaxed text-fg-muted">
+                Aucun docteur n&apos;est inscrit sur cet appareil.{" "}
+                <Link
+                  href="/docteur/inscription"
+                  className="font-semibold text-hospital hover:underline"
+                >
+                  Créer un compte docteur
+                </Link>{" "}
+                pour pouvoir lui transmettre des fiches.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-fg-muted">
+                La fiche apparaîtra dans le tableau de bord des docteurs
+                désignés, avec le classement retenu.
+              </p>
+            )}
+          </div>
+
           {/* Événements liés — colonne « N° EVT Groupe » du relevé */}
           <div>
             <p className="mb-2 flex items-center gap-2 text-sm font-bold text-fg">
@@ -492,8 +541,9 @@ function PanelBody({
             </Button>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
-            L&apos;enregistrement transmet un rapport à la direction et inscrit
-            la fiche au relevé du prochain CREX.
+            L&apos;enregistrement transmet la fiche aux docteurs désignés, un
+            rapport à la direction, et inscrit l&apos;événement au relevé du
+            prochain CREX.
           </p>
         </div>
       </div>

@@ -10,6 +10,8 @@ const PREFIX = "safecare.";
 
 export const STORAGE_KEYS = {
   profile: `${PREFIX}profile`,
+  people: `${PREFIX}people`,
+  doctorSession: `${PREFIX}doctorSession`,
   admin: `${PREFIX}admin`,
   incidents: `${PREFIX}incidents`,
   actions: `${PREFIX}actions`,

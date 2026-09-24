@@ -22,6 +22,7 @@ const COLUMNS = [
       { label: "Fonctionnement", href: "#fonctionnement" },
       { label: "Tarifs", href: "#tarifs" },
       { label: "Espace soignant", href: "/login" },
+      { label: "Espace docteur", href: "/docteur/connexion" },
     ],
   },
   {

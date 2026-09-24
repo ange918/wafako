@@ -9,7 +9,11 @@ import {
   Siren,
   TriangleAlert,
 } from "lucide-react";
-import { Sidebar, SidebarDrawer, type AdminSection } from "./Sidebar";
+import { ADMIN_ITEMS, type AdminSection } from "./Sidebar";
+import {
+  SpaceSidebar,
+  SpaceSidebarDrawer,
+} from "@/components/layout/SpaceSidebar";
 import { AlarmDonut, MonthlyTrend, ServiceBarChart } from "./Charts";
 import { IncidentsTable } from "./IncidentsTable";
 import { IncidentDetailDrawer } from "./IncidentDetailDrawer";
@@ -93,12 +97,21 @@ export function AdminShell() {
 
   return (
     <div className="min-h-dvh bg-canvas lg:pl-64">
-      <Sidebar active={section} onSelect={setSection} />
-      <SidebarDrawer
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+      <SpaceSidebar
+        items={ADMIN_ITEMS}
         active={section}
         onSelect={setSection}
+        heading="Pilotage"
+        exitLabel="Quitter la console"
+      />
+      <SpaceSidebarDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        items={ADMIN_ITEMS}
+        active={section}
+        onSelect={setSection}
+        heading="Pilotage"
+        exitLabel="Quitter la console"
       />
 
       <div className="flex min-h-dvh flex-col">
