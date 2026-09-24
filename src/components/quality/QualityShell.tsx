@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCheck,
+  ClipboardList,
   Inbox,
   Info,
   Menu,
@@ -11,6 +12,8 @@ import {
   Users,
 } from "lucide-react";
 import { ClassificationPanel } from "./ClassificationPanel";
+import { AssignActionForm } from "@/components/actions/AssignActionForm";
+import { AssignedActionsTable } from "@/components/actions/AssignedActionsTable";
 import { DirectorySection, DirectorySidebar } from "./DirectoryPanel";
 import {
   SpaceSidebar,
@@ -33,7 +36,7 @@ import { fadeUp, stagger } from "@/lib/motion";
 import { formatDateTime } from "@/lib/utils";
 import type { Incident } from "@/types";
 
-type QualitySection = "inbox" | "classees" | "annuaire";
+type QualitySection = "inbox" | "classees" | "actions" | "annuaire";
 
 const TITLES: Record<QualitySection, { title: string; subtitle: string }> = {
   inbox: {
@@ -44,6 +47,10 @@ const TITLES: Record<QualitySection, { title: string; subtitle: string }> = {
     title: "Déclarations classées",
     subtitle: "Fiches traitées et transmises",
   },
+  actions: {
+    title: "Actions correctives",
+    subtitle: "Attribution et suivi, personnel comme docteurs",
+  },
   annuaire: {
     title: "Annuaire",
     subtitle: "Personnel et docteurs de l'établissement",
@@ -51,7 +58,7 @@ const TITLES: Record<QualitySection, { title: string; subtitle: string }> = {
 };
 
 export function QualityShell() {
-  const { incidents, pendingClassification, doctors, staff } = useAppState();
+  const { incidents, pendingClassification } = useAppState();
   const [selected, setSelected] = useState<Incident | null>(null);
   const [section, setSection] = useState<QualitySection>("inbox");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,12 +79,9 @@ export function QualityShell() {
       count: pendingClassification,
     },
     { id: "classees", label: "Classées", icon: CheckCheck },
-    {
-      id: "annuaire",
-      label: "Annuaire",
-      icon: Users,
-      count: staff.length + doctors.length,
-    },
+    { id: "actions", label: "Actions", icon: ClipboardList },
+    // L'annuaire n'est pas une file d'attente : pas de pastille de comptage.
+    { id: "annuaire", label: "Annuaire", icon: Users },
   ];
 
   const header = TITLES[section];
@@ -137,7 +141,12 @@ export function QualityShell() {
               transition={{ duration: 0.22, ease: "easeOut" }}
               className="mx-auto max-w-5xl space-y-6"
             >
-              {section === "annuaire" ? (
+              {section === "actions" ? (
+                <>
+                  <AssignActionForm assignedByFallback="Cellule qualité" />
+                  <AssignedActionsTable />
+                </>
+              ) : section === "annuaire" ? (
                 <>
                   <div className="flex items-start gap-3 rounded-2xl border border-line bg-muted p-5">
                     <Info className="mt-0.5 size-5 shrink-0 text-hospital" />
@@ -183,8 +192,8 @@ export function QualityShell() {
                       tone="success"
                     />
                     <Stat
-                      label="Docteurs inscrits"
-                      value={doctors.length}
+                      label="Total reçu"
+                      value={incidents.length}
                       tone="neutral"
                     />
                   </motion.div>

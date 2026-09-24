@@ -191,8 +191,8 @@ function PanelBody({
       service: incident.service,
       facilitator:
         `${profile.firstName} ${profile.lastName}`.trim() || "Cellule qualité",
+      facilitatorId: profile.personId,
       incidentReferences: [incident.reference],
-      participants: 0,
     });
     setCalled(true);
   };

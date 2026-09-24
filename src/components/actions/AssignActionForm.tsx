@@ -13,12 +13,18 @@ import { cn } from "@/lib/utils";
 import type { Severity } from "@/types";
 
 /**
- * Attribution d'une action corrective par la direction.
+ * Attribution d'une action corrective.
  *
- * L'action part vers les employés désignés et apparaît aussitôt dans leur
- * onglet « Mes actions », avec une notification.
+ * Utilisée par la direction comme par la cellule qualité : l'une et l'autre
+ * désignent qui doit agir, dans tout l'annuaire — personnel comme docteurs.
+ * L'action apparaît aussitôt dans l'espace des personnes choisies, avec une
+ * notification.
  */
-export function AssignActionForm() {
+export function AssignActionForm({
+  assignedByFallback = "La direction",
+}: {
+  assignedByFallback?: string;
+}) {
   const { assignAction, staff, doctors, incidents, profile } = useAppState();
   const people = [...staff, ...doctors];
 
@@ -65,7 +71,7 @@ export function AssignActionForm() {
         .join(", "),
       assigneeIds: assignees,
       assignedBy:
-        `${profile.firstName} ${profile.lastName}`.trim() || "La direction",
+        `${profile.firstName} ${profile.lastName}`.trim() || assignedByFallback,
       decisionDate: new Date().toISOString(),
       dueDate: new Date(dueDate).toISOString(),
       priority,

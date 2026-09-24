@@ -205,9 +205,16 @@ export interface CrexMeeting {
   /** ISO 8601. */
   scheduledAt: string;
   service: string;
+  /** Nom de l'animateur, tel qu'affiché. */
   facilitator: string;
+  /** Animateur choisi dans l'annuaire, quand il y est inscrit. */
+  facilitatorId?: string;
   incidentReferences: string[];
-  participants: number;
+  /**
+   * Personnes ayant confirmé leur présence, par identifiant d'annuaire. Le
+   * nombre de participants en découle : il n'est pas saisi à la main.
+   */
+  confirmedBy: string[];
   done: boolean;
 }
 

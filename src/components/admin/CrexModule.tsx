@@ -7,18 +7,21 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { CrexReport } from "./CrexReport";
 import { Input, Select } from "@/components/ui/Field";
+import { AttendanceCount } from "@/components/meetings/Attendance";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import { SERVICES } from "@/lib/mock-data";
 import { fadeUp } from "@/lib/motion";
 import { formatDateTime } from "@/lib/utils";
 
 export function CrexModule() {
-  const { crexMeetings, scheduleCrex } = useAppState();
+  const { crexMeetings, scheduleCrex, staff, doctors } = useAppState();
+  // L'animateur est choisi dans l'annuaire ; la saisie libre ne sert que
+  // tant qu'aucun compte n'a été créé.
+  const people = [...staff, ...doctors];
   const [title, setTitle] = useState("");
   const [service, setService] = useState("");
   const [date, setDate] = useState("");
   const [facilitator, setFacilitator] = useState("");
-  const [participants, setParticipants] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
@@ -29,14 +32,18 @@ export function CrexModule() {
       return;
     }
     setError(null);
+    const animator = people.find((person) => person.id === facilitator);
     scheduleCrex({
       kind: "crex",
       title: title.trim(),
       service,
       scheduledAt: new Date(date).toISOString(),
-      facilitator: facilitator.trim(),
+      facilitator: animator
+        ? `${animator.kind === "docteur" ? "Dr " : ""}${animator.firstName} ${animator.lastName}`
+        : facilitator.trim(),
+      facilitatorId: animator?.id,
       incidentReferences: [],
-      participants: Number(participants) || 0,
+      confirmedBy: [],
       done: false,
     });
     setConfirmation(`« ${title.trim()} » a été planifiée.`);
@@ -44,7 +51,6 @@ export function CrexModule() {
     setService("");
     setDate("");
     setFacilitator("");
-    setParticipants("");
     window.setTimeout(() => setConfirmation(null), 3000);
   };
 
@@ -84,22 +90,38 @@ export function CrexModule() {
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />
-            <Input
-              name="crexFacilitator"
-              label="Animateur"
-              value={facilitator}
-              onChange={(event) => setFacilitator(event.target.value)}
-              placeholder="Nom de l'animateur"
-            />
-            <Input
-              name="crexParticipants"
-              label="Participants attendus"
-              type="number"
-              min={0}
-              value={participants}
-              onChange={(event) => setParticipants(event.target.value)}
-              placeholder="0"
-            />
+            {people.length > 0 ? (
+              <Select
+                name="crexFacilitator"
+                label="Animée par"
+                value={facilitator}
+                onChange={(event) => setFacilitator(event.target.value)}
+              >
+                <option value="">Sélectionner…</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.kind === "docteur" ? "Dr " : ""}
+                    {person.firstName} {person.lastName}
+                    {person.specialty ? ` — ${person.specialty}` : ""}
+                    {person.service ? ` — ${person.service}` : ""}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Input
+                name="crexFacilitator"
+                label="Animée par"
+                hint="aucun compte dans l'annuaire"
+                value={facilitator}
+                onChange={(event) => setFacilitator(event.target.value)}
+                placeholder="Nom de l'animateur"
+              />
+            )}
+
+            <p className="rounded-2xl border border-line bg-muted px-4 py-3 text-xs leading-relaxed text-fg-muted">
+              Les participants ne se saisissent pas : chacun confirme sa
+              présence depuis son espace, et le compte se met à jour tout seul.
+            </p>
 
             {error ? (
               <p className="rounded-2xl bg-alert/10 px-4 py-3 text-sm font-semibold text-alert">
@@ -152,8 +174,13 @@ export function CrexModule() {
                     </p>
                     <p className="mt-0.5 text-xs text-fg-muted">
                       {formatDateTime(meeting.scheduledAt)} · {meeting.service}{" "}
-                      · {meeting.facilitator}
+                      · animée par {meeting.facilitator}
                     </p>
+                    <AttendanceCount
+                      meeting={meeting}
+                      withNames
+                      className="mt-1.5"
+                    />
                   </div>
                   <span
                     className={

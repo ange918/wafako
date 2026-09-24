@@ -17,7 +17,7 @@ import {
   SEVERITY_TONE,
 } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
-import { AssignActionForm } from "./AssignActionForm";
+import { AssignActionForm } from "@/components/actions/AssignActionForm";
 import { useAppState } from "@/components/providers/AppStateProvider";
 import {
   ACTION_STATUS_LABELS,
