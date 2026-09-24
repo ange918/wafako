@@ -21,6 +21,10 @@ import {
 } from "@/components/layout/SpaceSidebar";
 import { DoctorIncidentCard } from "./DoctorIncidentCard";
 import { ActionList } from "@/components/actions/ActionList";
+import {
+  AttendanceButton,
+  AttendanceCount,
+} from "@/components/meetings/Attendance";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { NotificationBell } from "@/components/ui/NotificationBell";
@@ -97,8 +101,11 @@ export function DoctorShell() {
     [actions, currentDoctor],
   );
 
-  const urgentMeetings = crexMeetings.filter(
-    (meeting) => meeting.kind === "urgence",
+  // Toutes les réunions programmées, urgences comprises : le docteur y est
+  // attendu comme les autres et confirme sa présence d'ici.
+  const meetings = [...crexMeetings].sort(
+    (a, b) =>
+      new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
   );
 
   const items: SidebarItem<DoctorSection>[] = [
@@ -268,33 +275,59 @@ export function DoctorShell() {
 
                   <Card>
                     <CardHeader
-                      title="Rassemblements convoqués"
-                      subtitle={`${urgentMeetings.length} au total`}
+                      title="Réunions programmées"
+                      subtitle={`${meetings.length} au total · confirmez votre présence`}
                     />
-                    {urgentMeetings.length === 0 ? (
+                    {meetings.length === 0 ? (
                       <p className="px-6 py-12 text-center text-sm text-fg-muted">
-                        Aucun rassemblement immédiat convoqué.
+                        Aucune réunion programmée pour le moment.
                       </p>
                     ) : (
                       <ul className="divide-y divide-line">
-                        {urgentMeetings.map((meeting) => (
+                        {meetings.map((meeting) => (
                           <li
                             key={meeting.id}
-                            className="flex items-start gap-3 px-6 py-4"
+                            className="flex flex-wrap items-start gap-3 px-6 py-4"
                           >
-                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-alert/12 text-alert">
-                              <Siren className="size-5" />
+                            <span
+                              className={
+                                meeting.kind === "urgence"
+                                  ? "grid size-10 shrink-0 place-items-center rounded-xl bg-alert/12 text-alert"
+                                  : "grid size-10 shrink-0 place-items-center rounded-xl bg-hospital/10 text-hospital"
+                              }
+                            >
+                              {meeting.kind === "urgence" ? (
+                                <Siren className="size-5" />
+                              ) : (
+                                <CalendarClock className="size-5" />
+                              )}
                             </span>
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-56 flex-1">
                               <p className="truncate text-sm font-bold text-fg">
                                 {meeting.title}
                               </p>
                               <p className="mt-0.5 text-xs text-fg-muted">
                                 {formatDateTime(meeting.scheduledAt)} ·{" "}
-                                {meeting.service}
+                                {meeting.service} · animée par{" "}
+                                {meeting.facilitator}
                               </p>
+                              <AttendanceCount
+                                meeting={meeting}
+                                withNames
+                                className="mt-1.5"
+                              />
                             </div>
-                            <Badge tone="alert">Urgent</Badge>
+                            <div className="flex shrink-0 flex-col items-end gap-2">
+                              {meeting.kind === "urgence" ? (
+                                <Badge tone="alert">Urgent</Badge>
+                              ) : null}
+                              {!meeting.done ? (
+                                <AttendanceButton
+                                  meeting={meeting}
+                                  personId={currentDoctor?.id}
+                                />
+                              ) : null}
+                            </div>
                           </li>
                         ))}
                       </ul>

@@ -169,7 +169,7 @@ interface AppStateValue extends PersistedState {
   ) => void;
   markNotificationsRead: () => void;
   callUrgentMeeting: (
-    meeting: Omit<CrexMeeting, "id" | "kind" | "done">,
+    meeting: Omit<CrexMeeting, "id" | "kind" | "done" | "confirmedBy">,
   ) => CrexMeeting;
   signInQuality: () => void;
   unreadCount: number;
@@ -190,7 +190,8 @@ interface AppStateValue extends PersistedState {
   ) => ActionItem;
   updateActionStatus: (id: string, status: ActionStatus) => void;
   updateAlarm: (incidentId: string, analysis: AlarmAnalysis) => void;
-  scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => void;
+  scheduleCrex: (meeting: Omit<CrexMeeting, "id">) => CrexMeeting;
+  confirmAttendance: (meetingId: string, personId: string) => void;
   syncPending: () => void;
   clearData: () => void;
 }
@@ -405,11 +406,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
    * utilisateurs sont notifiés, quel que soit leur poste.
    */
   const callUrgentMeeting = useCallback(
-    (meeting: Omit<CrexMeeting, "id" | "kind" | "done">) => {
+    (meeting: Omit<CrexMeeting, "id" | "kind" | "done" | "confirmedBy">) => {
       const created: CrexMeeting = {
         ...meeting,
         id: uid("meet"),
         kind: "urgence",
+        confirmedBy: [],
         done: false,
       };
       patchState({ crexMeetings: [...stateStore.get().crexMeetings, created] });
@@ -487,14 +489,48 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const scheduleCrex = useCallback((meeting: Omit<CrexMeeting, "id">) => {
-    patchState({
-      crexMeetings: [
-        ...stateStore.get().crexMeetings,
-        { ...meeting, id: uid("crex") },
-      ],
-    });
-  }, []);
+  /**
+   * Programmation d'une réunion. Tout le monde est prévenu et peut confirmer
+   * sa présence depuis son espace.
+   */
+  const scheduleCrex = useCallback(
+    (meeting: Omit<CrexMeeting, "id">) => {
+      const created: CrexMeeting = { ...meeting, id: uid("crex") };
+      patchState({
+        crexMeetings: [...stateStore.get().crexMeetings, created],
+      });
+      notify({
+        title: `Réunion programmée — ${created.title}`,
+        body: `${new Date(created.scheduledAt).toLocaleString("fr-FR", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        })} · ${created.service} · animée par ${created.facilitator}. Confirmez votre présence depuis votre espace.`,
+        urgent: false,
+      });
+      return created;
+    },
+    [notify],
+  );
+
+  /** Confirmation de présence : le nombre de participants en découle. */
+  const confirmAttendance = useCallback(
+    (meetingId: string, personId: string) => {
+      patchState({
+        crexMeetings: stateStore.get().crexMeetings.map((meeting) =>
+          meeting.id === meetingId &&
+          !(meeting.confirmedBy ?? []).includes(personId)
+            ? {
+                ...meeting,
+                confirmedBy: [...(meeting.confirmedBy ?? []), personId],
+              }
+            : meeting,
+        ),
+      });
+    },
+    [],
+  );
 
   const syncPending = useCallback(() => {
     patchState({
@@ -616,6 +652,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     updateActionStatus,
     updateAlarm,
     scheduleCrex,
+    confirmAttendance,
     setCrexDay,
     syncPending,
     clearData,

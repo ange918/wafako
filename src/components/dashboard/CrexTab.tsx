@@ -10,6 +10,10 @@ import {
   Users,
 } from "lucide-react";
 import { useAppState } from "@/components/providers/AppStateProvider";
+import {
+  AttendanceButton,
+  AttendanceCount,
+} from "@/components/meetings/Attendance";
 import { fadeUp, stagger } from "@/lib/motion";
 import { clockStore } from "@/lib/external-store";
 import {
@@ -67,9 +71,20 @@ export function CrexTab() {
             scheduledAt={urgentFirst.scheduledAt}
             facilitator={urgentFirst.facilitator}
             service={urgentFirst.service}
-            participants={urgentFirst.participants}
             references={urgentFirst.incidentReferences}
             urgent={urgentFirst.kind === "urgence"}
+            footer={
+              <div className="flex flex-wrap items-center gap-3">
+                <AttendanceButton
+                  meeting={urgentFirst}
+                  personId={profile.personId}
+                />
+                <AttendanceCount
+                  meeting={urgentFirst}
+                  className="text-on-ink/70"
+                />
+              </div>
+            }
           />
         </motion.div>
       ) : null}
@@ -83,6 +98,12 @@ export function CrexTab() {
             service={service}
             note={`Fiches classées ${formatCrexPeriod(period)}`}
             references={[]}
+            footer={
+              <p className="text-xs leading-relaxed text-on-ink/60">
+                La confirmation de présence s&apos;ouvre dès que la direction
+                programme la séance.
+              </p>
+            }
           />
         ) : (
           <p className="rounded-3xl border border-dashed border-line bg-surface px-5 py-10 text-center text-sm text-fg-muted">
@@ -101,21 +122,26 @@ export function CrexTab() {
 
       <motion.section variants={fadeUp}>
         <h3 className="font-display mb-3 px-1 text-base font-extrabold text-fg">
-          Historique
+          Réunions programmées
         </h3>
         {crexMeetings.filter((meeting) => meeting.id !== urgentFirst?.id)
           .length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-surface px-5 py-8 text-center text-sm text-fg-muted">
-            Aucune réunion passée à afficher.
+            Aucune réunion programmée pour l&apos;instant.
           </p>
         ) : null}
         <ul className="space-y-2.5">
-          {crexMeetings
+          {[...crexMeetings]
+            .sort(
+              (a, b) =>
+                new Date(a.scheduledAt).getTime() -
+                new Date(b.scheduledAt).getTime(),
+            )
             .filter((meeting) => meeting.id !== urgentFirst?.id)
             .map((meeting) => (
               <li
                 key={meeting.id}
-                className="flex items-start gap-3 rounded-2xl border border-line bg-surface p-4"
+                className="flex flex-wrap items-start gap-3 rounded-2xl border border-line bg-surface p-4"
               >
                 <span
                   className={
@@ -130,17 +156,25 @@ export function CrexTab() {
                     <CalendarClock className="size-5" />
                   )}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-fg">
-                    {meeting.title}
-                  </p>
+                <div className="min-w-44 flex-1">
+                  <p className="text-sm font-bold text-fg">{meeting.title}</p>
                   <p className="mt-0.5 text-xs text-fg-muted">
-                    {formatDateTime(meeting.scheduledAt)} · {meeting.service}
+                    {formatDateTime(meeting.scheduledAt)} · {meeting.service} ·
+                    animée par {meeting.facilitator}
                   </p>
                 </div>
-                <span className="shrink-0 text-[11px] font-bold text-fg-muted">
-                  {meeting.done ? "Tenue" : "À venir"}
-                </span>
+                <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end">
+                  <span className="text-[11px] font-bold text-fg-muted">
+                    {meeting.done ? "Tenue" : "À venir"}
+                  </span>
+                  <AttendanceCount meeting={meeting} />
+                  {!meeting.done ? (
+                    <AttendanceButton
+                      meeting={meeting}
+                      personId={profile.personId}
+                    />
+                  ) : null}
+                </div>
               </li>
             ))}
         </ul>
@@ -154,18 +188,18 @@ function NextCrexCard({
   scheduledAt,
   facilitator,
   service,
-  participants,
   references,
   note,
+  footer,
   urgent = false,
 }: {
   title: string;
   scheduledAt: string;
   facilitator?: string;
   service: string;
-  participants?: number;
   references: string[];
   note?: string;
+  footer?: React.ReactNode;
   urgent?: boolean;
 }) {
   return (
@@ -196,7 +230,7 @@ function NextCrexCard({
         {facilitator ? (
           <p className="flex items-center gap-2">
             <Users className="size-4 shrink-0 text-softblue" />
-            {participants ?? 0} participants · animé par {facilitator}
+            Animée par {facilitator}
           </p>
         ) : null}
         {note ? (
@@ -206,6 +240,8 @@ function NextCrexCard({
           </p>
         ) : null}
       </div>
+
+      {footer ? <div className="relative mt-5">{footer}</div> : null}
 
       {references.length > 0 ? (
         <div className="relative mt-5">
